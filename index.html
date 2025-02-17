@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Перетаскивание изображения V по линии</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 2px solid #333;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="myCanvas" width="600" height="200"></canvas>
+<button id="moveButton">Переместить V</button>
+
+<script>
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Загружаем изображения
+    const imgA = new Image();
+    const imgB = new Image();
+    const imgV = new Image();
+
+    imgA.src = './images/pc.jpg'; // Изображение A
+    imgB.src = './images/pc.jpg'; // Изображение B
+    imgV.src = './images/mail.jpg'; // Изображение V
+
+    // Начальные позиции элементов
+    const elementA = { x: 50, y: 100, width: 50, height: 50 };
+    const elementB = { x: 500, y: 100, width: 50, height: 50 };
+    const elementV = { x: elementA.x, y: elementA.y, width: 50, height: 50 };
+
+    let animationFrameId;
+    let startTime;
+    const duration = 1000; // Длительность анимации в миллисекундах
+    let isDragging = false;
+
+    // Функция для отрисовки элементов
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Очистка canvas
+
+        // Рисуем элемент A
+        ctx.drawImage(imgA, elementA.x, elementA.y - elementA.height / 2, elementA.width, elementA.height);
+
+        // Рисуем элемент B
+        ctx.drawImage(imgB, elementB.x, elementB.y - elementB.height / 2, elementB.width, elementB.height);
+
+        // Рисуем линию между A и B
+        ctx.beginPath();
+        ctx.moveTo(elementA.x + elementA.width, elementA.y); // Начало линии (правый край A)
+        ctx.lineTo(elementB.x, elementB.y); // Конец линии (левый край B)
+        ctx.strokeStyle = 'black'; // Цвет линии
+        ctx.lineWidth = 2; // Ширина линии
+        ctx.stroke(); // Рисуем линию
+
+        // Рисуем элемент V
+        ctx.drawImage(imgV, elementV.x, elementV.y - elementV.height / 2, elementV.width, elementV.height);
+    }
+
+    // Функция для анимации перемещения
+    function animate() {
+        const currentTime = performance.now();
+        const elapsedTime = currentTime - startTime;
+        const progress = Math.min(elapsedTime / duration, 1); // Прогресс от 0 до 1
+
+        // Линейная интерполяция для перемещения
+        elementV.x = elementA.x + (elementB.x - elementA.x) * progress;
+
+        draw(); // Перерисовываем canvas
+
+        if (progress < 1) {
+            animationFrameId = requestAnimationFrame(animate); // Продолжаем анимацию
+        }
+    }
+
+    // Обработчик события для кнопки
+    document.getElementById('moveButton').addEventListener('click', function() {
+        startTime = performance.now(); // Запоминаем время начала анимации
+        cancelAnimationFrame(animationFrameId); // Останавливаем предыдущую анимацию, если она есть
+        animate(); // Запускаем анимацию
+    });
+
+    // Обработчик события для нажатия мыши
+    canvas.addEventListener('mousedown', function(event) {
+        const mouseX = event.offsetX;
+        const mouseY = event.offsetY;
+
+        // Проверяем, попадает ли курсор мыши на элемент V
+        if (mouseX >= elementV.x && mouseX <= elementV.x + elementV.width &&
+            mouseY >= elementV.y - elementV.height / 2 && mouseY <= elementV.y + elementV.height / 2) {
+            isDragging = true; // Начинаем перетаскивание
+        }
+    });
+
+    // Обработчик события для движения мыши
+    canvas.addEventListener('mousemove', function(event) {
+        if (isDragging) {
+            const mouseX = event.offsetX;
+
+            // Ограничиваем перемещение по линии
+            if (mouseX >= elementA.x + elementA.width && mouseX <= elementB.x) {
+                elementV.x = mouseX - elementV.width / 2; // Центрируем элемент V по курсору
+            }
+            draw(); // Перерисовываем canvas
+        }
+    });
+
+    // Обработчик события для отпускания мыши
+    canvas.addEventListener('mouseup', function() {
+        isDragging = false; // Останавливаем перетаскивание
+    });
+
+        // Обработчик события для выхода мыши за пределы canvas
+        canvas.addEventListener('mouseleave', function() {
+        isDragging = false; // Останавливаем перетаскивание, если мышь покидает canvas
+    });
+
+    // Обработчик события для загрузки изображений
+    imgA.onload = imgB.onload = imgV.onload = function() {
+        draw(); // Первоначальная отрисовка после загрузки изображений
+    };
+</script>
+
+</body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Перетаскивание изображения V по линии</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+        }
+        canvas {
+            border: 2px solid #333;
+        }
+        #explanation {
+            margin-top: 20px;
+            font-size: 18px;
+            height: 24px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="myCanvas" width="600" height="300"></canvas>
+<button id="moveButton">Переместить V</button>
+<div id="explanation"></div>
+
+<script>
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+    const explanationDiv = document.getElementById('explanation');
+
+    // Загружаем изображения
+    const imgA = new Image();
+    const imgB = new Image();
+    const imgC = new Image();
+    const imgV = new Image();
+
+    imgA.src = './images/pc.jpg';
+    imgB.src = './images/pc.jpg';
+    imgC.src = './images/pc.jpg';
+    imgV.src = './images/mail.jpg';
+
+    // Начальные позиции элементов
+    const elementA = { x: 50, y: 100, width: 50, height: 50 };
+    const elementB = { x: 500, y: 100, width: 50, height: 50 };
+    const elementC = { x: 500, y: 200, width: 50, height: 50 };
+    const elementV = { 
+        x: elementA.x + (elementA.width - 50)/2, // Центр элемента A
+        y: elementA.y,
+        width: 50, 
+        height: 50 
+    };
+
+    let animationFrameId;
+    let startTime;
+    const duration = 1000;
+    let isDragging = false;
+    let currentTarget = 'A';
+
+    function checkCollision(objV, objX) {
+        const vLeft = objV.x;
+        const vRight = objV.x + objV.width;
+        const vTop = objV.y - objV.height/2;
+        const vBottom = objV.y + objV.height/2;
+
+        const xLeft = objX.x;
+        const xRight = objX.x + objX.width;
+        const xTop = objX.y - objX.height/2;
+        const xBottom = objX.y + objX.height/2;
+
+        return !(vRight < xLeft || 
+                 vLeft > xRight || 
+                 vBottom < xTop || 
+                 vTop > xBottom);
+    }
+
+    function updateExplanationText() {
+        let text = '';
+        if(checkCollision(elementV, elementA)) text = 'V пересекается с A';
+        else if(checkCollision(elementV, elementB)) text = 'V пересекается с B';
+        else if(checkCollision(elementV, elementC)) text = 'V пересекается с C';
+        explanationDiv.textContent = text;
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Рисуем линии
+        ctx.beginPath();
+        ctx.moveTo(elementA.x + elementA.width/2, elementA.y);
+        ctx.lineTo(elementB.x, elementB.y);
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(elementB.x + elementB.width/2, elementB.y);
+        ctx.lineTo(elementC.x + elementC.width/2, elementC.y);
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Рисуем элементы
+        ctx.drawImage(imgA, elementA.x, elementA.y - elementA.height/2, elementA.width, elementA.height);
+        ctx.drawImage(imgB, elementB.x, elementB.y - elementB.height/2, elementB.width, elementB.height);
+        ctx.drawImage(imgC, elementC.x, elementC.y - elementC.height/2, elementC.width, elementC.height);
+
+        // Рисуем элемент V
+        ctx.drawImage(imgV, elementV.x, elementV.y - elementV.height/2, elementV.width, elementV.height);
+        
+        updateExplanationText();
+    }
+
+    function animateAB() {
+        const currentTime = performance.now();
+        const elapsedTime = currentTime - startTime;
+        const progress = Math.min(elapsedTime / duration, 1);
+        
+        const startX = elementA.x + elementA.width;
+        const startY = elementA.y;
+        const endX = elementB.x;
+        const endY = elementB.y;
+        
+        elementV.x = startX + (endX - startX) * progress - elementV.width/2;
+        elementV.y = startY + (endY - startY) * progress;
+        
+        draw();
+        
+        if(progress < 1) {
+            animationFrameId = requestAnimationFrame(animateAB);
+        } else {
+            currentTarget = 'B';
+            startTime = performance.now();
+            animateBC();
+        }
+    }
+
+    function animateBC() {
+        const currentTime = performance.now();
+        const elapsedTime = currentTime - startTime;
+        const progress = Math.min(elapsedTime / duration, 1);
+        
+        const startX = elementB.x;
+        const startY = elementB.y;
+        const endY = elementC.y;
+        
+        elementV.x = elementB.x;
+        elementV.y = startY + (endY - startY) * progress;
+        
+        draw();
+        
+        if(progress < 1) {
+            animationFrameId = requestAnimationFrame(animateBC);
+        } else {
+            currentTarget = 'C';
+        }
+    }
+
+    // Остальной код без изменений
+    document.getElementById('moveButton').addEventListener('click', function() {
+        if(currentTarget === 'A') {
+            startTime = performance.now();
+            cancelAnimationFrame(animationFrameId);
+            animateAB();
+        } else if(currentTarget === 'B') {
+            startTime = performance.now();
+            cancelAnimationFrame(animationFrameId);
+            animateBC();
+        }
+        currentTarget = 'A'
+    });
+
+    canvas.addEventListener('mousedown', function(event) {
+        const mouseX = event.offsetX;
+        const mouseY = event.offsetY;
+        
+        if(mouseX >= elementV.x && mouseX <= elementV.x + elementV.width &&
+            mouseY >= elementV.y - elementV.height/2 && mouseY <= elementV.y + elementV.height/2) {
+            isDragging = true;
+            currentTarget = 'dragging';
+        }
+    });
+
+    canvas.addEventListener('mousemove', function(event) {
+        if(isDragging) {
+            const mousePos = { x: event.offsetX, y: event.offsetY };
+            
+            const segmentAB = {
+                start: { x: elementA.x + elementA.width/2, y: elementA.y },
+                end: { x: elementB.x, y: elementB.y }
+            };
+            const segmentBC = {
+                start: { x: elementB.x + elementB.width/2, y: elementB.y },
+                end: { x: elementC.x + elementC.width/2, y: elementC.y }
+            };
+            
+            const closestAB = closestPointOnSegment(mousePos, segmentAB.start, segmentAB.end);
+            const closestBC = closestPointOnSegment(mousePos, segmentBC.start, segmentBC.end);
+            
+            const distAB = Math.hypot(mousePos.x - closestAB.x, mousePos.y - closestAB.y);
+            const distBC = Math.hypot(mousePos.x - closestBC.x, mousePos.y - closestBC.y);
+            
+            const targetPoint = distAB < distBC ? closestAB : closestBC;
+            
+            elementV.x = targetPoint.x - elementV.width/2;
+            elementV.y = targetPoint.y;
+            
+            draw();
+        }
+    });
+
+    canvas.addEventListener('mouseup', function() {
+        isDragging = false;
+        const originalX = elementA.x + (elementA.width - elementV.width)/2;
+        const originalY = elementA.y;
+        const distance = Math.hypot(elementV.x - originalX, elementV.y - originalY);
+        if(distance < 10) {
+            elementV.x = originalX;
+            elementV.y = originalY;
+            currentTarget = 'A';
+            draw();
+        } else if(elementV.y === elementB.y) {
+            currentTarget = 'B';
+        }
+    });
+
+    canvas.addEventListener('mouseleave', () => isDragging = false);
+
+    // Функция для поиска ближайшей точки на сегменте
+    function closestPointOnSegment(p, p0, p1) {
+        const dx = p1.x - p0.x;
+        const dy = p1.y - p0.y;
+        const t = ((p.x - p0.x) * dx + (p.y - p0.y) * dy) / (dx * dx + dy * dy || 1);
+        const tClamped = Math.max(0, Math.min(1, t));
+        return {
+            x: p0.x + dx * tClamped,
+            y: p0.y + dy * tClamped
+        };
+    }
+
+    // Загрузка изображений
+    let imagesLoaded = 0;
+    const totalImages = 4;
+    function imageLoaded() {
+        imagesLoaded++;
+        if(imagesLoaded === totalImages) draw();
+    }
+    imgA.onload = imageLoaded;
+    imgB.onload = imageLoaded;
+    imgC.onload = imageLoaded;
+    imgV.onload = imageLoaded;
+</script>
+</body>
+</html>

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Просмотр лекций</title>
+    <style>
+        /* Стилизация страницы */
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+        }
+        /* Стилизация бокового меню */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 220px;
+            height: 100%;
+            background-color: #2c3e50;
+            padding-top: 20px;
+        }
+        .sidebar ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        .sidebar li {
+            margin-bottom: 15px;
+        }
+        .sidebar a {
+            color: #ecf0f1;
+            text-decoration: none;
+            padding: 12px 20px;
+            display: block;
+        }
+        .sidebar a:hover {
+            background-color: #34495e;
+        }
+        /* Стилизация основного контента */
+        .content {
+            margin-left: 240px;
+            padding: 20px;
+            max-width: 1000px;
+            min-width: 600px;
+        }
+        h1 {
+            font-size: 28px;
+            color: #2c3e50;
+        }
+        h2 {
+            font-size: 22px;
+            color: #34495e;
+        }
+        p, li {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #7f8c8d;
+        }
+        /* Стилизация для popup */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(44, 62, 80, 0.9);
+        }
+        .modal-content {
+            background-color: #ecf0f1;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #2c3e50;
+            width: 80%;
+            max-width: 800px;
+            position: relative;
+        }
+        .close {
+            color: #2c3e50;
+            position: absolute;
+            top: 10px;
+            right: 25px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        #lecture-content {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #lecture-content ul{
+            width: 100%;
+            align-items: start;
+        }
+        #lecture-content p{
+            width: 100%;
+        }
+        /* Стилизация canvas */
+        #popupCanvas {
+            border: 2px solid #333;
+            display: block;
+            margin: 0 auto;
+        }
+        #moveButton {
+            display: block;
+            margin: 20px auto;
+        }
+        #explanation {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 18px;
+            height: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Боковое меню -->
+        <nav class="sidebar">
+            <ul>
+                <li><a href="#" data-topic="topic1">Тема 1: Введение</a></li>
+                <li><a href="#" data-topic="topic2">Тема 2: Основы</a></li>
+                <li><a href="#" data-topic="topic3">Тема 3: Продвинутые концепции</a></li>
+                <li><a href="#" data-topic="topic4">Тема 4: Многоуровневые сетевые модели</a></li>
+                <li><a href="#" data-topic="topic5">Тема 5: Заключение</a></li>
+            </ul>
+        </nav>
+        <!-- Основное содержание -->
+        <main class="content">
+            <div id="lecture-content">
+                <!-- Лекция будет загружена сюда -->
+            </div>
+        </main>
+    </div>
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <!-- Содержание popup -->
+            <canvas id="popupCanvas" width="600" height="300"></canvas>
+            <button id="moveButton">Переместить V</button>
+            <div id="explanation"></div>
+        </div>
+    </div>
+    <script>
+        // Объект с содержанием лекций
+        const topics = {
+            topic1: {
+                title: "Тема 1: Введение",
+                content: `
+                    <h1>Тема 1: Введение</h1>
+                    <h2>Подзаголовок 1</h2>
+                    <p>Добро пожаловать в первую лекцию курса! Здесь мы рассмотрим основные понятия и подготовимся к дальнейшему изучению.</p>
+                    <button id="openPopup">Открыть интерактивное окно</button>
+                `
+            },
+            topic2: {
+                title: "Тема 2: Основы",
+                content: `
+                    <h1>Тема 2: Основы</h1>
+                    <h2>Подзаголовок 1</h2>
+                    <p>В этой лекции мы погрузимся в базовые концепции и термины, необходимые для понимания материала.</p>
+                    <h2>Подзаголовок 2</h2>
+                    <p>Рассмотрим ключевые принципы и их практическое применение.</p>
+                `
+            },
+            topic3: {
+                title: "Тема 3: Продвинутые концепции",
+                content: `
+                    <h1>Тема 3: Продвинутые концепции</h1>
+                    <h2>Подзаголовок 1</h2>
+                    <p>Изучим более сложные темы и углубимся в детали.</p>
+                    <h2>Подзаголовок 2</h2>
+                    <p>Разберём реальные кейсы и примеры использования.</p>
+                `
+            },
+            topic4: {
+                title: "Тема 4: Многоуровневые сетевые модели",
+                content: `
+                    <h1>Многоуровневые сетевые модели</h1>
+                    <p>Глобальные сети объединяют в себе огромное количество географически распределённых узлов. Множество вариантов программно-технической реализации передачи информации породили необходимость создания открытых стандартов — стандартов, официально опубликованных и доступных для разработчиков программно-аппаратных компонентов.</p>
+                    
+                    <img src="./Одноуровневое_взаимодействие.gif">
+                    
+                    <h2>Взаимодействие уровней</h2>
+                    <p>Взаимодействие приложений через сеть очень сложно. Разделение его на уровни позволяет понизть сложность. Каждый уровень взаимодействует через сеть с одноименным уровнем. Для этого уровень пользуется услугами нижележащего уровня и каждый уровень предоставляет услуги вышележащему уровню.</p>
+                    <p>Благодаря такой структуре совместная работа сетевого оборудования и программного обеспечения становится гораздо проще и понятнее.</p>
+                    
+                    <img src="./Сетевая_модель.gif">
+                    
+                    <h2>Сетевая модель</h2>
+                    <p>Сетевая модель определяет:</p>
+                    <ul>
+                    <li>службы — то, что делается на данном уровне;</li>
+                    <li>интерфейсы (API) — как обращаться к другим уровням;</li>
+                    <li>протоколы — набор правил общения с одноуровневым компонентом на другом узле сети.</li>
+                    </ul>
+                    <h2>Как устроена сетевая модель</h2>
+                    <p>Каждый сетевой уровень подчиняется определенному сетевому протоколу, определяющему набор сетевых служб, присущих данному уровню.</p>
+                    <p>Сетевая служба — это набор функций, которыми обладает определенный сетевой уровень, выполняемых для вышележащего уровня (например, коррекция ошибок).</p>
+                    <p>Каждый сетевой уровень запрашивает определенную сетевую службу от нижележащего уровня. Протокол уровня определяет структуру данных и формат пакета для выполнения запрашиваемой сетевой службы.</p>
+                    <p>Протокол — это правила, которым должен следовать уровень, чтобы реализовать сетевую службу.</p>
+                    <p>Сетевой протокол описывает формат данных или пакетов данных, то есть правила оформления, которым данные должны подчиняться, чтобы программное обеспечение выполняло ту или иную функцию или сетевую службу (для случая коррекции ошибок протокол описывает какие ошибки сетевая служба должна исправлять).</p>
+                    <h4>Пример. Почтовая служба. Чтобы отправить кому-либо письмо, мы пишем адрес на кон-верте. Таким образом, функция адреса заключается в обеспечении правильной доставки. Формат, в котором пишется адрес, строго определен: 1-я строка – кому, 2-я строка – улица, дом, 3-я строка – город. Почтовые работники ожидают, что на второй строке будет указана улица, а за ней – номер дома. Формат адреса на конверте следует определенному протоколу.</h4>
+                `
+            },
+            topic5: {
+                title: "Тема 5: Заключение",
+                content: `
+                    <h1>Тема 5: Заключение</h1>
+                    <h2>Подзаголовок 1</h2>
+                    <p>Подведём итоги курса и закрепим основные моменты.</p>
+                    <h2>Подзаголовок 2</h2>
+                    <p>Рекомендации для дальнейшего изучения и развития навыков.</p>
+                `
+            }
+        };
+
+        // Когда страница загружена
+        document.addEventListener("DOMContentLoaded", () => {
+            const links = document.querySelectorAll(".sidebar a");
+            const contentDiv = document.getElementById("lecture-content");
+
+            // Функция загрузки содержания
+            function loadContent(topic) {
+                if (topics[topic]) {
+                    contentDiv.innerHTML = topics[topic].content;
+                    if (topic === "topic1") {
+                        // Добавляем обработчик для кнопки открытия popup
+                        const openPopupBtn = document.getElementById("openPopup");
+                        openPopupBtn.addEventListener("click", openModal);
+                    }
+                } else {
+                    contentDiv.innerHTML = "<p>Содержимое не найдено.</p>";
+                }
+            }
+
+            // Обработка клика по ссылке
+            links.forEach(link => {
+                link.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    const topic = link.getAttribute("data-topic");
+                    loadContent(topic);
+                });
+            });
+
+            // Загрузить первую тему по умолчанию
+            loadContent("topic1");
+
+            // Работа с модальным окном
+            const modal = document.getElementById("myModal");
+            const closeModalBtn = document.getElementsByClassName("close")[0];
+
+            function openModal() {
+                modal.style.display = "block";
+                initCanvas();
+            }
+
+            closeModalBtn.onclick = function() {
+                modal.style.display = "none";
+                cancelAnimationFrame(animationFrameId);
+            }
+
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                    cancelAnimationFrame(animationFrameId);
+                }
+            }
+
+            // Функции для работы с canvas
+            let animationFrameId;
+            let startTime;
+            const duration = 1000;
+            let isDragging = false;
+            let currentTarget = 'A';
+
+            function initCanvas() {
+                const canvas = document.getElementById('popupCanvas');
+                const ctx = canvas.getContext('2d');
+                const explanationDiv = document.getElementById('explanation');
+
+                // Загружаем изображения
+                const imgA = new Image();
+                const imgB = new Image();
+                const imgC = new Image();
+                const imgV = new Image();
+
+                imgA.src = './images/pc.jpg';
+                imgB.src = './images/pc.jpg';
+                imgC.src = './images/pc.jpg';
+                imgV.src = './images/mail.jpg';
+
+                // Начальные позиции элементов
+                const elementA = { x: 50, y: 100, width: 50, height: 50 };
+                const elementB = { x: 500, y: 100, width: 50, height: 50 };
+                const elementC = { x: 500, y: 200, width: 50, height: 50 };
+                const elementV = { 
+                    x: elementA.x + (elementA.width - 50)/2, // Центр элемента A
+                    y: elementA.y,
+                    width: 50, 
+                    height: 50 
+                };
+
+                function checkCollision(objV, objX) {
+                    const vLeft = objV.x;
+                    const vRight = objV.x + objV.width;
+                    const vTop = objV.y - objV.height/2;
+                    const vBottom = objV.y + objV.height/2;
+
+                    const xLeft = objX.x;
+                    const xRight = objX.x + objX.width;
+                    const xTop = objX.y - objX.height/2;
+                    const xBottom = objX.y + objX.height/2;
+
+                    return !(vRight < xLeft || 
+                             vLeft > xRight || 
+                             vBottom < xTop || 
+                             vTop > xBottom);
+                }
+
+                function updateExplanationText() {
+                    let text = '';
+                    if(checkCollision(elementV, elementA)) text = 'V пересекается с A';
+                    else if(checkCollision(elementV, elementB)) text = 'V пересекается с B';
+                    else if(checkCollision(elementV, elementC)) text = 'V пересекается с C';
+                    explanationDiv.textContent = text;
+                }
+
+                function draw() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    // Рисуем линии
+                    ctx.beginPath();
+                    ctx.moveTo(elementA.x + elementA.width/2, elementA.y);
+                    ctx.lineTo(elementB.x, elementB.y);
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(elementB.x + elementB.width/2, elementB.y);
+                    ctx.lineTo(elementC.x + elementC.width/2, elementC.y);
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Рисуем элементы
+                    ctx.drawImage(imgA, elementA.x, elementA.y - elementA.height/2, elementA.width, elementA.height);
+                    ctx.drawImage(imgB, elementB.x, elementB.y - elementB.height/2, elementB.width, elementB.height);
+                    ctx.drawImage(imgC, elementC.x, elementC.y - elementC.height/2, elementC.width, elementC.height);
+
+                    // Рисуем элемент V
+                    ctx.drawImage(imgV, elementV.x, elementV.y - elementV.height/2, elementV.width, elementV.height);
+
+                    updateExplanationText();
+                }
+
+                function animateAB() {
+                    const currentTime = performance.now();
+                    const elapsedTime = currentTime - startTime;
+                    const progress = Math.min(elapsedTime / duration, 1);
+
+                    const startX = elementA.x + elementA.width;
+                    const startY = elementA.y;
+                    const endX = elementB.x;
+                    const endY = elementB.y;
+
+                    elementV.x = startX + (endX - startX) * progress - elementV.width/2;
+                    elementV.y = startY + (endY - startY) * progress;
+
+                    draw();
+
+                    if(progress < 1) {
+                        animationFrameId = requestAnimationFrame(animateAB);
+                    } else {
+                        currentTarget = 'B';
+                        startTime = performance.now();
+                        animateBC();
+                    }
+                }
+
+                function animateBC() {
+                    const currentTime = performance.now();
+                    const elapsedTime = currentTime - startTime;
+                    const progress = Math.min(elapsedTime / duration, 1);
+
+                    const startX = elementB.x;
+                    const startY = elementB.y;
+                    const endY = elementC.y;
+
+                    elementV.x = elementB.x;
+                    elementV.y = startY + (endY - startY) * progress;
+
+                    draw();
+
+                    if(progress < 1) {
+                        animationFrameId = requestAnimationFrame(animateBC);
+                    } else {
+                        currentTarget = 'C';
+                    }
+                }
+
+                document.getElementById('moveButton').addEventListener('click', function() {
+                    if(currentTarget === 'A') {
+                        startTime = performance.now();
+                        cancelAnimationFrame(animationFrameId);
+                        animateAB();
+                    } else if(currentTarget === 'B') {
+                        startTime = performance.now();
+                        cancelAnimationFrame(animationFrameId);
+                        animateBC();
+                    }
+                    currentTarget = 'A';
+                });
+
+                let isDragging = false;
+
+                canvas.addEventListener('mousedown', function(event) {
+                    const mouseX = event.offsetX;
+                    const mouseY = event.offsetY;
+
+                    if(mouseX >= elementV.x && mouseX <= elementV.x + elementV.width &&
+                        mouseY >= elementV.y - elementV.height/2 && mouseY <= elementV.y + elementV.height/2) {
+                        isDragging = true;
+                        currentTarget = 'dragging';
+                    }
+                });
+
+                canvas.addEventListener('mousemove', function(event) {
+                    if(isDragging) {
+                        const mousePos = { x: event.offsetX, y: event.offsetY };
+
+                        const segmentAB = {
+                            start: { x: elementA.x + elementA.width/2, y: elementA.y },
+                            end: { x: elementB.x, y: elementB.y }
+                        };
+                        const segmentBC = {
+                            start: { x: elementB.x + elementB.width/2, y: elementB.y },
+                            end: { x: elementC.x + elementC.width/2, y: elementC.y }
+                        };
+
+                        const closestAB = closestPointOnSegment(mousePos, segmentAB.start, segmentAB.end);
+                        const closestBC = closestPointOnSegment(mousePos, segmentBC.start, segmentBC.end);
+
+                        const distAB = Math.hypot(mousePos.x - closestAB.x, mousePos.y - closestAB.y);
+                        const distBC = Math.hypot(mousePos.x - closestBC.x, mousePos.y - closestBC.y);
+
+                        const targetPoint = distAB < distBC ? closestAB : closestBC;
+
+                        elementV.x = targetPoint.x - elementV.width/2;
+                        elementV.y = targetPoint.y;
+
+                        draw();
+                    }
+                });
+
+                canvas.addEventListener('mouseup', function() {
+                    isDragging = false;
+                    const originalX = elementA.x + (elementA.width - elementV.width)/2;
+                    const originalY = elementA.y;
+                    const distance = Math.hypot(elementV.x - originalX, elementV.y - originalY);
+                    if(distance < 10) {
+                        elementV.x = originalX;
+                        elementV.y = originalY;
+                        currentTarget = 'A';
+                        draw();
+                    } else if(elementV.y === elementB.y) {
+                        currentTarget = 'B';
+                    }
+                });
+
+                canvas.addEventListener('mouseleave', () => isDragging = false);
+
+                // Функция для поиска ближайшей точки на сегменте
+                function closestPointOnSegment(p, p0, p1) {
+                    const dx = p1.x - p0.x;
+                    const dy = p1.y - p0.y;
+                    const t = ((p.x - p0.x) * dx + (p.y - p0.y) * dy) / (dx * dx + dy * dy || 1);
+                    const tClamped = Math.max(0, Math.min(1, t));
+                    return {
+                        x: p0.x + dx * tClamped,
+                        y: p0.y + dy * tClamped
+                    };
+                }
+
+                // Загрузка изображений
+                let imagesLoaded = 0;
+                const totalImages = 4;
+                function imageLoaded() {
+                    imagesLoaded++;
+                    if(imagesLoaded === totalImages) draw();
+                }
+                imgA.onload = imageLoaded;
+                imgB.onload = imageLoaded;
+                imgC.onload = imageLoaded;
+                imgV.onload = imageLoaded;
+            }
+        });
+    </script>
+</body>
+</html>
