@@ -1,0 +1,33 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+Person(user, "Пользователь", "Использует приложение для тестирования")
+Person(teacher, "Учитель", "Использует приложение для тестирования и редактирования тестов")
+
+System_Boundary(s1, "Приложение для тестирования") {
+    Component(mainWindow, "MainWindow", "PyQt5", "Главное окно, позволяющее выбрать режим тестирования или редактирования")
+    Component(testSelectionDialog, "TestSelectionDialog", "PyQt5", "Диалог выбора теста для прохождения тестирования")
+    Component(testWindow, "TestWindow", "PyQt5", "Окно проведения теста, отображающее вопросы и варианты ответов")
+    Component(loginDialog, "LoginDialog", "PyQt5", "Диалог ввода пароля для аутентификации в режиме редактирования")
+    Component(editWindow, "EditWindow", "PyQt5", "Окно редактирования тестов и вопросов")
+    Component(addTestDialog, "AddTestDialog", "PyQt5", "Диалог добавления нового теста")
+    Component(addQuestionDialog, "AddQuestionDialog", "PyQt5", "Диалог добавления вопроса")
+    Component(deleteTestDialog, "DeleteTestDialog", "PyQt5", "Диалог удаления теста")
+    Component(deleteQuestionDialog, "DeleteQuestionDialog", "PyQt5", "Диалог удаления вопроса")
+    Component(dataManager, "DataManager", "Python", "Менеджер данных для загрузки/сохранения, шифрования/расшифровки тестов (использует Fernet)")
+}
+
+Rel(user, mainWindow, "Запускает", "Нажимает кнопки")
+Rel(teacher, mainWindow, "Запускает", "Нажимает кнопки")
+Rel(mainWindow, testSelectionDialog, "Открывает", "При выборе режима тестирования")
+Rel(testSelectionDialog, testWindow, "Передаёт выбранный тест")
+Rel(mainWindow, loginDialog, "Открывает", "При выборе режима редактирования")
+Rel(loginDialog, editWindow, "При успешном входе")
+Rel(editWindow, addTestDialog, "Запускает", "Добавление нового теста")
+Rel(editWindow, addQuestionDialog, "Запускает", "Добавление вопроса")
+Rel(dataManager, mainWindow, "Хранит и предоставляет данные")
+Rel(dataManager, testWindow, "Обеспечивает данные тестов")
+Rel(dataManager, editWindow, "Используется для обновления тестов")
+Rel(editWindow, deleteTestDialog , "Запускает", "Удаление теста")
+Rel(editWindow, deleteQuestionDialog , "Запускает", "Удаление вопроса")
+@enduml

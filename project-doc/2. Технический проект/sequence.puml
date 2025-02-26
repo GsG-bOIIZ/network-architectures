@@ -1,0 +1,21 @@
+@startuml EditFlowSequence
+actor User
+participant MainWindow
+participant LoginDialog
+participant DataManager
+participant EditWindow
+
+User -> MainWindow: Нажатие кнопки "Редактирование"
+MainWindow -> LoginDialog: Открыть окно входа (LoginDialog)
+User -> LoginDialog: Ввод пароля
+LoginDialog -> DataManager: check_password(input_password)
+DataManager --> LoginDialog: Возвращает результат (true/false)
+alt Пароль верен
+  LoginDialog -> User: Подтверждение входа
+  LoginDialog -> MainWindow: Закрыть диалог (accept)
+  MainWindow -> EditWindow: Открыть окно редактирования
+  EditWindow -> DataManager: load_tests() и загрузка данных
+else Пароль неверен
+  LoginDialog -> User: Показать сообщение "Неверный пароль!"
+end
+@enduml

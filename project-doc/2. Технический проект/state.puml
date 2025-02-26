@@ -1,0 +1,35 @@
+@startuml TestWindowState
+[*] --> Idle
+
+state Idle {
+  entry: TestWindow is open
+}
+
+Idle --> DisplayQuestion : Начало теста
+
+state DisplayQuestion {
+  entry: Вопрос отображается, ответы не выбраны
+}
+DisplayQuestion --> AwaitAnswer : Ожидание выбора ответа
+
+state AwaitAnswer {
+  entry: Пользователь выбирает ответ
+}
+AwaitAnswer --> SaveAnswer : Ответ выбран
+
+state SaveAnswer {
+  entry: Сохранение ответа текущего вопроса
+}
+SaveAnswer --> Navigation : Пользователь нажимает переход
+
+state Navigation {
+  entry: Переход между вопросами
+}
+Navigation --> DisplayQuestion : Если есть следующий вопрос
+Navigation --> FinishTest : Если вопросов больше нет
+
+state FinishTest {
+  entry: Подсчет баллов и показ результата
+}
+FinishTest --> [*]
+@enduml

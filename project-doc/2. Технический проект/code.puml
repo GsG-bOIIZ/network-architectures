@@ -1,0 +1,120 @@
+@startuml C4_Code
+title C4: Code - Структура классов приложения
+
+' ----------------------------
+' Класс DataManager
+' ----------------------------
+class DataManager {
+  - filename: str
+  - key: bytes
+  - fernet: Fernet
+  - data: dict
+  + load_data(): dict
+  + save_data(data: dict): void
+}
+
+' ----------------------------
+' Класс LoginDialog
+' ----------------------------
+class LoginDialog {
+  - password_edit: QLineEdit
+  - accepted: bool
+  + check_password(): void
+}
+
+' ----------------------------
+' Класс ChangePasswordDialog
+' ----------------------------
+class ChangePasswordDialog {
+  - current_edit: QLineEdit
+  - new_edit: QLineEdit
+  - confirm_edit: QLineEdit
+  + change_password(): void
+}
+
+' ----------------------------
+' Класс TestSelectionDialog
+' ----------------------------
+class TestSelectionDialog {
+  - test_list: QListWidget
+  - selected_test: dict
+  + load_tests(): void
+  + select_test(): void
+}
+
+' ----------------------------
+' Класс TestWindow
+' ----------------------------
+class TestWindow {
+  - test_data: dict
+  - questions: list
+  - current_index: int
+  - user_answers: list
+  - current_answer_widgets: list
+  + show_question(): void
+  + go_next(): void
+  + finish_test(): void
+}
+
+' ----------------------------
+' Класс AddTestDialog
+' ----------------------------
+class AddTestDialog {
+  - topic_edit: QLineEdit
+  + add_test(): void
+}
+
+' ----------------------------
+' Класс AddQuestionDialog
+' ----------------------------
+class AddQuestionDialog {
+  - question_edit: QLineEdit
+  - type_combo: QComboBox
+  - answers_table: QTableWidget
+  + load_question_data(): void
+  + add_row(text: str, correct: bool, penalty: float, answer_image: str): void
+  + remove_row(): void
+  + save_question(): void
+}
+
+' ----------------------------
+' Класс EditWindow
+' ----------------------------
+class EditWindow {
+  - tests_list: QListWidget
+  - questions_list: QListWidget
+  + load_tests(): void
+  + load_questions(): void
+  + add_test(): void
+  + delete_test(): void
+  + add_question(): void
+  + delete_question(): void
+  + edit_question(): void
+  + change_password(): void
+}
+
+' ----------------------------
+' Класс MainWindow
+' ----------------------------
+class MainWindow {
+  - test_button: QPushButton
+  - edit_button: QPushButton
+  + start_test(): void
+  + start_edit(): void
+}
+
+' ----------------------------
+' Отношения между классами
+' ----------------------------
+DataManager --> LoginDialog : "Проверка пароля"
+DataManager --> TestSelectionDialog : "Предоставляет данные тестов"
+DataManager --> TestWindow : "Предоставляет данные тестов"
+DataManager --> EditWindow : "Хранение и обновление данных"
+
+LoginDialog --> MainWindow : "Инициирует переход в режим редактирования"
+TestSelectionDialog --> TestWindow : "Передаёт выбранный тест"
+EditWindow --> AddTestDialog : "Добавление теста"
+EditWindow --> AddQuestionDialog : "Добавление/редактирование вопроса"
+EditWindow --> ChangePasswordDialog : "Смена пароля"
+
+@enduml
