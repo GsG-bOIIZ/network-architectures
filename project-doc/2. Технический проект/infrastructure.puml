@@ -1,0 +1,31 @@
+@startuml
+!theme vibrant
+
+
+package "Разработка" as development {
+    actor "Разработчик" as developer
+    [Система контроля версий (Git Github)] as vcs << (C, #FFAAAA) >>
+    [Github(Ветка main)] as cicd << (C, #FFAAAA) >>
+    [Github(Ветка dev)] as cicdtest << (C, #FFAAAA) >>
+    [Компиляция python кода в exe-файл] as compile << (C, #FFAAAA) >>
+}
+
+package "Использование" as production {
+    actor "Преподаватель" as teacher
+    actor "Студент" as student
+    [Test app] as app << (C, #FFAAAA) >>
+    [Web page] as web << (C, #FFAAAA) >>
+}
+
+
+developer --> vcs : "PUSH Коммитов"
+vcs --> cicd : ""
+vcs --> cicdtest : ""
+
+cicd --> compile : ""
+compile --> app : ""
+cicd --> web : ""
+teacher --> app : "Добавление тестов и просмотр ответов студентов"
+student--> web: "Чтение лекции"
+student--> app : "Прохождение тестов"
+@enduml
