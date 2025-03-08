@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
     QButtonGroup, QRadioButton, QFileDialog
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QFont
 
 # =====================================================================
 # Функции хэширования пароля
@@ -74,6 +74,18 @@ class LoginDialog(QDialog):
         self.password_edit = QLineEdit()
         self.password_edit.setEchoMode(QLineEdit.Password)
         self.ok_button = QPushButton("ОК")
+        self.ok_button.setStyleSheet("""
+            QPushButton {
+                background-color: #D9D9D9;
+                color: black;
+                padding: 15px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #AEAEAE;
+            }
+        """)
         self.ok_button.clicked.connect(self.check_password)
         layout.addWidget(self.label)
         layout.addWidget(self.password_edit)
@@ -151,6 +163,19 @@ class TestSelectionDialog(QDialog):
         layout.addWidget(self.select_button)
         self.setLayout(layout)
         self.selected_test = None
+        self.select_button.setStyleSheet("""
+            QPushButton {
+                background-color: #D9D9D9;
+                color: black;
+                padding: 15px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #AEAEAE;
+            }
+        """)
+
 
     def load_tests(self):
         self.test_list.clear()
@@ -191,13 +216,49 @@ class TestWindow(QDialog):
         # Верхняя панель навигации
         self.nav_layout = QHBoxLayout()
         self.prev_button = QPushButton("Предыдущий")
+        self.prev_button.setStyleSheet("""
+            QPushButton {
+                background-color: #D9D9D9;
+                color: black;
+                padding: 15px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #AEAEAE;
+            }
+        """)
         self.prev_button.clicked.connect(self.go_prev)
         self.nav_combo = QComboBox()
         self.nav_combo.addItems([f"Вопрос {i+1}" for i in range(self.total_questions)])
         self.nav_combo.currentIndexChanged.connect(self.on_nav_change)
         self.next_button = QPushButton("Следующий")
+        self.next_button.setStyleSheet("""
+            QPushButton {
+                background-color: #D9D9D9;
+                color: black;
+                padding: 15px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #AEAEAE;
+            }
+        """)
         self.next_button.clicked.connect(self.go_next)
         self.finish_button = QPushButton("Завершить тест")
+        self.finish_button.setStyleSheet("""
+            QPushButton {
+                background-color: #D9D9D9;
+                color: black;
+                padding: 15px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #AEAEAE;
+            }
+        """)
         self.finish_button.clicked.connect(self.finish_test_clicked)
         self.nav_layout.addWidget(self.prev_button)
         self.nav_layout.addWidget(self.nav_combo)
@@ -725,21 +786,61 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Приложение для тестирования")
         self.setMinimumSize(800, 600)
 
+        self.setStyleSheet("""
+            background: qradialgradient(
+                cx: 0.5, cy: 0.5, radius: 0.5,
+                fx: 0.5, fy: 0.5,
+                stop: 0 #9695B2, stop: 1 #8684F0
+            );
+        """)
+
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
         layout = QVBoxLayout()
         central_widget.setLayout(layout)
 
-        self.test_button = QPushButton("Тестирование")
-        self.test_button.setFixedWidth(200)
-        self.test_button.clicked.connect(self.start_test)
-        layout.addWidget(self.test_button, alignment=Qt.AlignCenter)  # Выравнивание по центру
+        # Заголовок
+        title_label = QLabel("Приложение для тестирования")
+        title_label.setFont(QFont("Arial", 18, QFont.Bold))
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
 
-        self.edit_button = QPushButton("Редактирование")
-        self.edit_button.setFixedWidth(200)
-        self.edit_button.clicked.connect(self.start_edit)
-        layout.addWidget(self.edit_button, alignment=Qt.AlignCenter)  # Выравнивание по центру
+        # Кнопка "Тестирование"
+        test_button = QPushButton("Тестирование")
+        test_button.setFont(QFont("Arial", 14))
+        test_button.setStyleSheet("""
+            QPushButton {
+                background-color: #D9D9D9;
+                color: black;
+                padding: 15px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #AEAEAE;
+            }
+        """)
+        test_button.clicked.connect(self.start_test)
+        layout.addWidget(test_button)
+
+        # Кнопка "Редактирование"
+        edit_button = QPushButton("Редактирование")
+        edit_button.setFont(QFont("Arial", 14))
+        edit_button.setStyleSheet("""
+            QPushButton {
+                background-color: #D9D9D9;
+                color: black;
+                padding: 15px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #AEAEAE;
+            }
+        """)
+        edit_button.clicked.connect(self.start_edit)
+        layout.addWidget(edit_button)
 
     def start_test(self):
         dialog = TestSelectionDialog(self)
