@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-import sys, os, json, hashlib, random, base64
+import sys, os, json, hashlib, random, base64, datetime
 from cryptography.fernet import Fernet
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QDialog,
     QLabel, QLineEdit, QComboBox, QListWidget, QHBoxLayout, QMessageBox,
     QTableWidget, QTableWidgetItem, QCheckBox, QHeaderView, QAbstractItemView,
-    QButtonGroup, QRadioButton, QFileDialog
+    QButtonGroup, QRadioButton, QFileDialog, QTextEdit
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QFont
@@ -36,21 +36,30 @@ class DataManager:
 
     def load_data(self):
         if not os.path.exists(self.filename):
-            # Если файла нет – создаём структуру по умолчанию с паролем "admin"
+            # Если файла нет – создаём структуру по умолчанию с паролем "admin" и путём сохранения результатов
             default_password = "admin"
             hashed = hash_password(default_password)
-            data = {"password": hashed, "tests": []}
+            data = {"password": hashed, "tests": [], "results_path": os.path.abspath("results")}
             self.save_data(data)
+            # Если директории для результатов нет – создаём её
+            if not os.path.exists(data["results_path"]):
+                os.makedirs(data["results_path"])
             return data
         else:
             with open(self.filename, "rb") as f:
                 encrypted_data = f.read()
             try:
                 decrypted_data = self.fernet.decrypt(encrypted_data)
-                return json.loads(decrypted_data.decode())
+                data = json.loads(decrypted_data.decode())
+                # Проверяем наличие пути сохранения результатов
+                if "results_path" not in data:
+                    data["results_path"] = os.path.abspath("results")
+                if not os.path.exists(data["results_path"]):
+                    os.makedirs(data["results_path"])
+                return data
             except Exception as e:
                 print("Ошибка расшифровки данных:", e)
-                return {"password": "", "tests": []}
+                return {"password": "", "tests": [], "results_path": os.path.abspath("results")}
 
     def save_data(self, data):
         data_json = json.dumps(data, ensure_ascii=False).encode()
@@ -61,6 +70,34 @@ class DataManager:
 
 # Глобальный экземпляр DataManager
 data_manager = DataManager()
+
+# =====================================================================
+# Менеджер результатов тестов: шифрование/расшифровка, сохранение
+# =====================================================================
+class ResultManager:
+    def __init__(self, results_path):
+        self.results_path = results_path
+        self.key = ENCRYPTION_KEY  # Можно использовать тот же ключ
+        self.fernet = Fernet(self.key)
+        
+    def save_result(self, result_data):
+        # Формируем имя файла: TEST-<timestamp>.enc
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")
+        filename = os.path.join(self.results_path, f"TEST-{timestamp}.enc")
+        data_json = json.dumps(result_data, ensure_ascii=False, indent=2).encode()
+        encrypted_data = self.fernet.encrypt(data_json)
+        with open(filename, "wb") as f:
+            f.write(encrypted_data)
+    
+    def load_result(self, filepath):
+        with open(filepath, "rb") as f:
+            encrypted_data = f.read()
+        try:
+            decrypted_data = self.fernet.decrypt(encrypted_data)
+            return json.loads(decrypted_data.decode())
+        except Exception as e:
+            QMessageBox.warning(None, "Ошибка", f"Не удалось расшифровать файл:\n{e}")
+            return None
 
 # =====================================================================
 # Диалог ввода пароля для режима редактирования
@@ -148,6 +185,26 @@ class ChangePasswordDialog(QDialog):
         self.accept()
 
 # =====================================================================
+# Диалог ввода имени студента при прохождении теста
+# =====================================================================
+class StudentLoginDialog(QDialog):
+    def __init__(self, parent=None):
+        super(StudentLoginDialog, self).__init__(parent)
+        self.setWindowTitle("Вход студента")
+        layout = QVBoxLayout()
+        self.label = QLabel("Введите ваше имя:")
+        self.name_edit = QLineEdit()
+        self.ok_button = QPushButton("Начать тест")
+        self.ok_button.clicked.connect(self.accept)
+        layout.addWidget(self.label)
+        layout.addWidget(self.name_edit)
+        layout.addWidget(self.ok_button)
+        self.setLayout(layout)
+    
+    def get_name(self):
+        return self.name_edit.text().strip()
+
+# =====================================================================
 # Диалог выбора теста (темы)
 # =====================================================================
 class TestSelectionDialog(QDialog):
@@ -176,7 +233,6 @@ class TestSelectionDialog(QDialog):
             }
         """)
 
-
     def load_tests(self):
         self.test_list.clear()
         tests = data_manager.data.get("tests", [])
@@ -195,11 +251,12 @@ class TestSelectionDialog(QDialog):
 # Окно проведения теста с навигацией и прикреплёнными изображениями
 # =====================================================================
 class TestWindow(QDialog):
-    def __init__(self, test_data, parent=None):
+    def __init__(self, test_data, student_name, parent=None):
         super(TestWindow, self).__init__(parent)
         self.setWindowTitle(f"Тест: {test_data.get('topic','')}")
         self.setMinimumSize(800, 600)
         self.test_data = test_data
+        self.student_name = student_name
         self.questions = test_data.get("questions", [])
         self.total_questions = len(self.questions)
         # Для каждого вопроса генерируем постоянное случайное распределение индексов ответов
@@ -434,18 +491,27 @@ class TestWindow(QDialog):
 
     def finish_test(self):
         total_score = 0
+        detailed_results = []
         for i, question in enumerate(self.questions):
+            q_text = question.get("question", "")
+            q_score = 0
+            answers = question.get("answers", [])
             if question.get("type") == "single":
                 correct_idx = None
-                answers = question.get("answers", [])
                 for idx, ans in enumerate(answers):
                     if ans.get("correct", False):
                         correct_idx = idx
                         break
                 user_ans = self.user_answers[i]
                 q_score = 1 if user_ans == correct_idx else 0
+                correct_answer = answers[correct_idx]["text"] if correct_idx is not None and correct_idx < len(answers) else "Нет правильного ответа"
+                detailed_results.append({
+                    "question": q_text,
+                    "correct_answer": correct_answer,
+                    "user_answer": answers[user_ans]["text"] if user_ans is not None and user_ans < len(answers) else "Нет ответа",
+                    "score": q_score
+                })
             elif question.get("type") == "multiple":
-                answers = question.get("answers", [])
                 total_correct = sum(1 for ans in answers if ans.get("correct", False))
                 correct_weight = 1/total_correct if total_correct else 0
                 raw_score = 0
@@ -461,12 +527,33 @@ class TestWindow(QDialog):
                 if correct_selected > 0 and raw_score < correct_weight:
                     raw_score = correct_weight
                 q_score = max(0, min(raw_score, 1))
+                correct_answer = ", ".join([ans["text"] for ans in answers if ans.get("correct", False)])
+                detailed_results.append({
+                    "question": q_text,
+                    "correct_answer": correct_answer,
+                    "user_answer": [answers[idx]["text"] for idx, selected in enumerate(user_selection) if selected],
+                    "score": q_score
+                })
             total_score += q_score
         percent = (total_score / self.total_questions) * 100 if self.total_questions else 0
         QMessageBox.information(self, "Результаты", 
             f"Ваш суммарный балл: {total_score:.2f} из {self.total_questions}\n"
-            f"Успешность: {percent:.0f}%")
+            f"Успешность: {percent:.2f}%")
+        # Сохраняем результаты теста (JSON-структура, которая далее будет отформатирована для отображения)
+        result_data = {
+            "student": self.student_name,
+            "timestamp": datetime.datetime.now().isoformat(),
+            "test_topic": self.test_data.get("topic", ""),
+            "results": detailed_results,
+            "total_score": total_score,
+            "total_questions": self.total_questions,
+            "percent": percent
+        }
+        results_path = data_manager.data.get("results_path", os.path.abspath("results"))
+        rm = ResultManager(results_path)
+        rm.save_result(result_data)
         self.accept()
+
 
 # =====================================================================
 # Диалог добавления нового теста (темы)
@@ -658,7 +745,7 @@ class AddQuestionDialog(QDialog):
         self.accept()
 
 # =====================================================================
-# Окно редактирования тестов и вопросов
+# Окно редактирования тестов, вопросов и управления результатами
 # =====================================================================
 class EditWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -693,12 +780,19 @@ class EditWindow(QMainWindow):
         self.edit_question_btn.clicked.connect(self.edit_question)
         self.change_password_btn = QPushButton("Сменить пароль")
         self.change_password_btn.clicked.connect(self.change_password)
+        # Новые кнопки для управления результатами
+        self.set_results_path_btn = QPushButton("Изменить путь сохранения результатов")
+        self.set_results_path_btn.clicked.connect(self.set_results_path)
+        self.view_results_btn = QPushButton("Просмотр результатов")
+        self.view_results_btn.clicked.connect(self.view_results)
         btn_layout.addWidget(self.add_test_btn)
         btn_layout.addWidget(self.delete_test_btn)
         btn_layout.addWidget(self.add_question_btn)
         btn_layout.addWidget(self.delete_question_btn)
         btn_layout.addWidget(self.edit_question_btn)
         btn_layout.addWidget(self.change_password_btn)
+        btn_layout.addWidget(self.set_results_path_btn)
+        btn_layout.addWidget(self.view_results_btn)
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
 
@@ -777,6 +871,80 @@ class EditWindow(QMainWindow):
         dialog = ChangePasswordDialog(self)
         dialog.exec_()
 
+    def set_results_path(self):
+        directory = QFileDialog.getExistingDirectory(self, "Выберите директорию для сохранения результатов")
+        if directory:
+            data_manager.data["results_path"] = directory
+            data_manager.save_data(data_manager.data)
+            QMessageBox.information(self, "Успех", "Путь сохранения результатов изменён.")
+
+    def view_results(self):
+        results_path = data_manager.data.get("results_path", os.path.abspath("results"))
+        if not os.path.exists(results_path):
+            QMessageBox.warning(self, "Ошибка", "Директория с результатами не существует.")
+            return
+        files = [f for f in os.listdir(results_path) if f.startswith("TEST-") and f.endswith(".enc")]
+        if not files:
+            QMessageBox.information(self, "Информация", "Файлы с результатами не найдены.")
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Просмотр результатов")
+        dialog.setMinimumSize(600, 400)
+        layout = QVBoxLayout()
+        list_widget = QListWidget()
+        list_widget.addItems(files)
+        layout.addWidget(list_widget)
+        result_text = QTextEdit()
+        result_text.setReadOnly(True)
+        layout.addWidget(result_text)
+        btn_layout = QHBoxLayout()
+        open_btn = QPushButton("Открыть")
+        close_btn = QPushButton("Закрыть")
+        btn_layout.addWidget(open_btn)
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+        dialog.setLayout(layout)
+
+        rm = ResultManager(results_path)
+
+        def format_result(result):
+            # Преобразуем ISO-метку времени в нужный формат
+            try:
+                dt = datetime.datetime.fromisoformat(result.get("timestamp", ""))
+                time_str = dt.strftime("%Y.%m.%d %H:%M:%S")
+            except Exception:
+                time_str = result.get("timestamp", "")
+            output = []
+            output.append(f'Тестируемый: "{result.get("student", "")}"')
+            output.append(f'Время начала теста: {time_str}')
+            output.append(f'Тест: "{result.get("test_topic", "")}"\n')
+            output.append("Результаты:\n")
+            for i, item in enumerate(result.get("results", []), 1):
+                output.append(f'Вопрос {i}: "{item.get("question", "")}"')
+                output.append(f'Правильный ответ: {item.get("correct_answer", "")}')
+                ua = item.get("user_answer", "")
+                if isinstance(ua, list):
+                    ua = ", ".join(ua)
+                output.append(f'Ответ тестируемого: {ua}')
+                output.append(f'Баллы: {item.get("score", 0)}\n')
+            output.append(f'Итоговый балл: {result.get("total_score", 0)}')
+            output.append(f'Всего вопросов: {result.get("total_questions", 0)}')
+            output.append(f'Процент прохождения: {result.get("percent", 0)}%')
+            return "\n".join(output)
+
+        def open_result():
+            selected = list_widget.currentItem()
+            if selected:
+                filepath = os.path.join(results_path, selected.text())
+                result = rm.load_result(filepath)
+                if result:
+                    formatted = format_result(result)
+                    result_text.setText(formatted)
+        open_btn.clicked.connect(open_result)
+        close_btn.clicked.connect(dialog.accept)
+        dialog.exec_()
+
+
 # =====================================================================
 # Главное окно – выбор режима
 # =====================================================================
@@ -843,11 +1011,18 @@ class MainWindow(QMainWindow):
         layout.addWidget(edit_button)
 
     def start_test(self):
-        dialog = TestSelectionDialog(self)
-        if dialog.exec_() == QDialog.Accepted:
-            test_data = dialog.selected_test
-            test_window = TestWindow(test_data, self)
-            test_window.exec_()
+        # Запрашиваем имя студента
+        login_dialog = StudentLoginDialog(self)
+        if login_dialog.exec_() == QDialog.Accepted:
+            student_name = login_dialog.get_name()
+            if not student_name:
+                QMessageBox.warning(self, "Ошибка", "Введите имя!")
+                return
+            dialog = TestSelectionDialog(self)
+            if dialog.exec_() == QDialog.Accepted:
+                test_data = dialog.selected_test
+                test_window = TestWindow(test_data, student_name, self)
+                test_window.exec_()
 
     def start_edit(self):
         login_dialog = LoginDialog(self)
