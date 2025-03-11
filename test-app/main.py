@@ -712,7 +712,6 @@ class TestWindow(QDialog):
         msg_box.information(self, "Результаты", 
             f"Ваш суммарный балл: {total_score:.2f} из {self.total_questions}\n"
             f"Успешность: {percent:.0f}%")
-<<<<<<< HEAD
         result_data = {
             "student": self.student_name,
             "timestamp": datetime.datetime.now().isoformat(),
@@ -725,11 +724,6 @@ class TestWindow(QDialog):
         results_path = data_manager.data.get("results_path", os.path.abspath("results"))
         rm = ResultManager(results_path)
         rm.save_result(result_data)
-=======
-        
-        # Сохраняем результаты в документ .docx
-        self.save_results_to_docx(total_score, percent)
->>>>>>> 69d2547181a4d6835c93cd5e3272451c2fb82e53
         self.accept()
 
 # ===================== Диалог добавления теста =====================
