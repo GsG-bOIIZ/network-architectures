@@ -9,14 +9,20 @@ from PyQt5.QtWidgets import (
     QButtonGroup, QRadioButton, QFileDialog, QTextEdit, QMenuBar, QAction
 )
 from PyQt5.QtCore import Qt
+<<<<<<< HEAD
 from PyQt5.QtGui import QPixmap, QFont
+=======
+from PyQt5.QtGui import QPixmap
+from docx import Document
+>>>>>>> 69d2547181a4d6835c93cd5e3272451c2fb82e53
 
 # ===================== Универсальные стили =====================
 label_style = """
     QLabel {
         font-family: "Segoe UI", Arial, sans-serif;
-        font-size: 14pt;
+        font-size: 20pt;
         color: #2b2b2b;
+        background: #fff;
         padding: 5px;
     }
 """
@@ -26,22 +32,24 @@ combobox_style = """
         font-family: "Segoe UI", Arial, sans-serif;
         font-size: 12pt;
         padding: 5px;
-        border: 1px solid #aeaeae;
+        border: 2px solid #000;
         border-radius: 5px;
         background-color: #ffffff;
-        color: #2b2b2b;
+        color: #000;
     }
     QComboBox::drop-down {
         subcontrol-origin: padding;
         subcontrol-position: top right;
         width: 25px;
-        border-left: 1px solid #aeaeae;
+        border-radius: 5px;
+        border-left: 2px solid #000;
     }
     QComboBox QAbstractItemView {
         font-family: "Segoe UI", Arial, sans-serif;
         font-size: 12pt;
         background-color: #ffffff;
-        border: 1px solid #aeaeae;
+        border: 2px solid #000;
+        border-radius: 5px;
         selection-background-color: #d9d9d9;
     }
 """
@@ -61,6 +69,69 @@ tablewidget_style = """
         border: 1px solid #aeaeae;
         font-size: 12pt;
         font-weight: bold;
+    }
+"""
+
+# Стиль для поля ввода
+password_edit_style = """
+    QLineEdit {
+        padding: 10px;
+        font-size: 14px;
+        border: 2px solid #ccc;
+        border-radius: 5px;
+        background: #fff;
+        color: #000;
+    }
+    QLineEdit:focus {
+        border: 2px solid #6a9eda;
+        background: #fff;
+    }
+"""
+
+button_style = """
+    QPushButton {
+        background-color: #fff;
+        font-size: 20px;
+        color: #000000;
+        border: 2px solid;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    QPushButton:hover {
+        background-color: #aeaeae;
+    }
+"""
+
+button_not_enable = """
+    QPushButton {
+        font-size: 20px;
+        color: #000000;
+        border: 2px solid;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #aeaeae;
+    }
+"""
+
+q_message_box = """
+    QMessageBox {
+        background-color: #fff;
+        font-size: 14px;
+    }
+    QMessageBox QLabel {
+        color: #000; /* Цвет текста */
+        font-weight: bold;
+    }
+    QMessageBox QPushButton {
+        background-color: #fff;
+        font-size: 20px;
+        color: #000000;
+        border: 2px solid;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    QMessageBox QPushButton:hover {
+        background-color: #aeaeae; /* Цвет кнопки при наведении */
     }
 """
 
@@ -138,7 +209,9 @@ class ResultManager:
             decrypted_data = self.fernet.decrypt(encrypted_data)
             return json.loads(decrypted_data.decode())
         except Exception as e:
-            QMessageBox.warning(None, "Ошибка", f"Не удалось расшифровать файл:\n{e}")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(None, "Ошибка", f"Не удалось расшифровать файл:\n{e}")
             return None
 
 # ===================== Диалоги =====================
@@ -150,9 +223,10 @@ class LoginDialog(QDialog):
         self.label = QLabel("Введите пароль:")
         self.label.setStyleSheet(label_style)
         self.password_edit = QLineEdit()
+        self.password_edit.setStyleSheet(password_edit_style)
         self.password_edit.setEchoMode(QLineEdit.Password)
         self.ok_button = QPushButton("ОК")
-        self.ok_button.setStyleSheet("padding: 10px;")
+        self.ok_button.setStyleSheet(button_style)
         self.ok_button.clicked.connect(self.check_password)
         layout.addWidget(self.label)
         layout.addWidget(self.password_edit)
@@ -167,7 +241,9 @@ class LoginDialog(QDialog):
             self.accepted = True
             self.accept()
         else:
-            QMessageBox.warning(self, "Ошибка", "Неверный пароль!")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Неверный пароль!")
 
 class ChangePasswordDialog(QDialog):
     def __init__(self, parent=None):
@@ -177,14 +253,17 @@ class ChangePasswordDialog(QDialog):
         self.current_label = QLabel("Текущий пароль:")
         self.current_label.setStyleSheet(label_style)
         self.current_edit = QLineEdit()
+        self.current_edit.setStyleSheet(password_edit_style)
         self.current_edit.setEchoMode(QLineEdit.Password)
         self.new_label = QLabel("Новый пароль:")
         self.new_label.setStyleSheet(label_style)
         self.new_edit = QLineEdit()
+        self.new_edit.setStyleSheet(password_edit_style)
         self.new_edit.setEchoMode(QLineEdit.Password)
         self.confirm_label = QLabel("Подтвердите новый пароль:")
         self.confirm_label.setStyleSheet(label_style)
         self.confirm_edit = QLineEdit()
+        self.confirm_edit.setStyleSheet(password_edit_style)
         self.confirm_edit.setEchoMode(QLineEdit.Password)
         self.ok_button = QPushButton("Сменить пароль")
         self.ok_button.setStyleSheet("padding: 10px;")
@@ -204,14 +283,20 @@ class ChangePasswordDialog(QDialog):
         confirm = self.confirm_edit.text()
         stored_hash = data_manager.data.get("password", "")
         if not check_password(current, stored_hash):
-            QMessageBox.warning(self, "Ошибка", "Неверный текущий пароль!")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Неверный пароль!")
             return
         if new != confirm or not new:
-            QMessageBox.warning(self, "Ошибка", "Новый пароль и подтверждение не совпадают или пусты!")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Новый пароль и подтверждение не совпадают или пусты!")
             return
         data_manager.data["password"] = hash_password(new)
         data_manager.save_data(data_manager.data)
-        QMessageBox.information(self, "Успех", "Пароль успешно изменён!")
+        msg_box = QMessageBox()
+        msg_box.setStyleSheet(q_message_box)
+        msg_box.information(self, "Успех", "Пароль успешно изменён!")
         self.accept()
 
 class StudentLoginDialog(QDialog):
@@ -222,9 +307,11 @@ class StudentLoginDialog(QDialog):
         self.label = QLabel("Введите ваше имя:")
         self.label.setStyleSheet(label_style)
         self.name_edit = QLineEdit()
+        self.name_edit.setStyleSheet(password_edit_style)
         self.ok_button = QPushButton("Начать тест")
         self.ok_button.setStyleSheet("padding: 10px;")
         self.ok_button.clicked.connect(self.accept)
+        self.ok_button.setStyleSheet(button_style)
         layout.addWidget(self.label)
         layout.addWidget(self.name_edit)
         layout.addWidget(self.ok_button)
@@ -251,7 +338,7 @@ class TestSelectionDialog(QDialog):
         """)
         self.load_tests()
         self.select_button = QPushButton("Выбрать")
-        self.select_button.setStyleSheet("padding: 10px;")
+        self.select_button.setStyleSheet(button_style)
         self.select_button.clicked.connect(self.select_test)
         layout.addWidget(self.test_list)
         layout.addWidget(self.select_button)
@@ -270,7 +357,9 @@ class TestSelectionDialog(QDialog):
             self.selected_test = data_manager.data["tests"][current_row]
             self.accept()
         else:
-            QMessageBox.warning(self, "Ошибка", "Выберите тест!")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Выберите тест!")
 
 # ===================== Окно проведения теста =====================
 class TestWindow(QDialog):
@@ -293,17 +382,17 @@ class TestWindow(QDialog):
         self.layout = QVBoxLayout()
         self.nav_layout = QHBoxLayout()
         self.prev_button = QPushButton("Предыдущий")
-        self.prev_button.setStyleSheet("padding: 10px;")
+        self.prev_button.setStyleSheet(button_style)
         self.prev_button.clicked.connect(self.go_prev)
         self.nav_combo = QComboBox()
         self.nav_combo.setStyleSheet(combobox_style)
         self.nav_combo.addItems([f"Вопрос {i+1}" for i in range(self.total_questions)])
         self.nav_combo.currentIndexChanged.connect(self.on_nav_change)
         self.next_button = QPushButton("Следующий")
-        self.next_button.setStyleSheet("padding: 10px;")
+        self.next_button.setStyleSheet(button_style)
         self.next_button.clicked.connect(self.go_next)
         self.finish_button = QPushButton("Завершить тест")
-        self.finish_button.setStyleSheet("padding: 10px;")
+        self.finish_button.setStyleSheet(button_style)
         self.finish_button.clicked.connect(self.finish_test_clicked)
         self.nav_layout.addWidget(self.prev_button)
         self.nav_layout.addWidget(self.nav_combo)
@@ -380,6 +469,17 @@ class TestWindow(QDialog):
             else:
                 self.question_image_label.clear()
             self.question_label.setText(f"Вопрос {self.current_index+1}: {question.get('question','')}")
+            self.question_label.setStyleSheet(
+                """
+                    QWidget {
+                            font-family: "Segoe UI", Arial, sans-serif;
+                            font-size: 20pt;
+                            border-radius: 5px;
+                            margin-bottom: 5px;
+                            background-color: #ffffff;
+                        }
+                """
+            )
             for i in reversed(range(self.answers_layout.count())):
                 widget = self.answers_layout.itemAt(i).widget()
                 if widget:
@@ -396,6 +496,7 @@ class TestWindow(QDialog):
                     rb = QRadioButton(answer.get("text", ""))
                     rb.setStyleSheet("""
                         QRadioButton {
+                            background: #fff;
                             font-size: 12pt;
                             padding: 5px;
                         }
@@ -414,7 +515,6 @@ class TestWindow(QDialog):
                     container.setLayout(container_layout)
                     container.setStyleSheet("""
                         QWidget {
-                            border: 1px solid #d9d9d9;
                             border-radius: 5px;
                             margin-bottom: 5px;
                             background-color: #ffffff;
@@ -449,7 +549,6 @@ class TestWindow(QDialog):
                     container.setLayout(container_layout)
                     container.setStyleSheet("""
                         QWidget {
-                            border: 1px solid #d9d9d9;
                             border-radius: 5px;
                             margin-bottom: 5px;
                             background-color: #ffffff;
@@ -468,6 +567,14 @@ class TestWindow(QDialog):
         self.nav_combo.blockSignals(False)
         self.prev_button.setEnabled(self.current_index > 0)
         self.next_button.setEnabled(self.current_index < self.total_questions - 1)
+        if (self.current_index >= self.total_questions - 1):
+            self.next_button.setStyleSheet(button_not_enable)
+        else: 
+            self.next_button.setStyleSheet(button_style)
+        if (self.current_index == 0):
+            self.prev_button.setStyleSheet(button_not_enable)
+        else:
+            self.prev_button.setStyleSheet(button_style)
 
     def on_nav_change(self, index):
         if index == self.current_index:
@@ -506,6 +613,52 @@ class TestWindow(QDialog):
             if reply == QMessageBox.Ok:
                 return
         self.finish_test()
+
+    def save_results_to_docx(self, total_score, percent):
+        doc = Document()
+        
+        # Добавляем заголовок
+        doc.add_heading('Результаты теста', 0)
+        
+        # Добавляем информацию о тесте
+        doc.add_paragraph(f"Тема теста: {self.test_data.get('topic', '')}")
+        doc.add_paragraph(f"Количество вопросов: {self.total_questions}")
+        doc.add_paragraph(f"Ваш суммарный балл: {total_score:.2f} из {self.total_questions}")
+        doc.add_paragraph(f"Успешность: {percent:.0f}%")
+        
+        # Добавляем раздел с ответами
+        doc.add_heading('Ответы на вопросы', level=1)
+        
+        for i, question in enumerate(self.questions):
+            doc.add_paragraph(f"Вопрос {i+1}: {question.get('question', '')}")
+            
+            user_answer = self.user_answers[i]
+            answers = question.get("answers", [])
+            
+            if question.get("type") == "single":
+                if user_answer is not None:
+                    doc.add_paragraph(f"Ваш ответ: {answers[user_answer].get('text', '')}")
+                else:
+                    doc.add_paragraph("Ваш ответ: Нет ответа")
+            elif question.get("type") == "multiple":
+                if user_answer is not None:
+                    selected_answers = [answers[idx].get('text', '') for idx, selected in enumerate(user_answer) if selected]
+                    doc.add_paragraph(f"Ваши ответы: {', '.join(selected_answers) if selected_answers else 'Нет ответа'}")
+                else:
+                    doc.add_paragraph("Ваши ответы: Нет ответа")
+            
+            correct_answers = [ans.get('text', '') for ans in answers if ans.get('correct', False)]
+            doc.add_paragraph(f"Правильные ответы: {', '.join(correct_answers)}")
+            doc.add_paragraph()  # Пустая строка для разделения вопросов
+        
+        # Сохраняем документ
+        filename, _ = QFileDialog.getSaveFileName(self, "Сохранить результаты теста", "", "Word Documents (*.docx)")
+        if filename:
+            if not filename.endswith('.docx'):
+                filename += '.docx'
+            doc.save(filename)
+            QMessageBox.information(self, "Успех", f"Результаты сохранены в файл {filename}")
+
 
     def finish_test(self):
         total_score = 0
@@ -554,9 +707,12 @@ class TestWindow(QDialog):
                 })
             total_score += q_score
         percent = (total_score / self.total_questions) * 100 if self.total_questions else 0
-        QMessageBox.information(self, "Результаты", 
+        msg_box = QMessageBox()
+        msg_box.setStyleSheet(q_message_box)
+        msg_box.information(self, "Результаты", 
             f"Ваш суммарный балл: {total_score:.2f} из {self.total_questions}\n"
             f"Успешность: {percent:.0f}%")
+<<<<<<< HEAD
         result_data = {
             "student": self.student_name,
             "timestamp": datetime.datetime.now().isoformat(),
@@ -569,6 +725,11 @@ class TestWindow(QDialog):
         results_path = data_manager.data.get("results_path", os.path.abspath("results"))
         rm = ResultManager(results_path)
         rm.save_result(result_data)
+=======
+        
+        # Сохраняем результаты в документ .docx
+        self.save_results_to_docx(total_score, percent)
+>>>>>>> 69d2547181a4d6835c93cd5e3272451c2fb82e53
         self.accept()
 
 # ===================== Диалог добавления теста =====================
@@ -580,8 +741,9 @@ class AddTestDialog(QDialog):
         self.label = QLabel("Название теста:")
         self.label.setStyleSheet(label_style)
         self.topic_edit = QLineEdit()
+        self.topic_edit.setStyleSheet(password_edit_style)
         self.ok_button = QPushButton("Добавить")
-        self.ok_button.setStyleSheet("padding: 10px;")
+        self.ok_button.setStyleSheet(button_style)
         self.ok_button.clicked.connect(self.add_test)
         layout.addWidget(self.label)
         layout.addWidget(self.topic_edit)
@@ -595,7 +757,9 @@ class AddTestDialog(QDialog):
             self.topic = topic
             self.accept()
         else:
-            QMessageBox.warning(self, "Ошибка", "Введите название теста!")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Введите название теста!")
 
 # ===================== Диалог добавления/редактирования вопроса =====================
 class AddQuestionDialog(QDialog):
@@ -610,11 +774,12 @@ class AddQuestionDialog(QDialog):
         self.question_label = QLabel("Текст вопроса:")
         self.question_label.setStyleSheet(label_style)
         self.question_edit = QLineEdit()
+        self.question_edit.setStyleSheet(password_edit_style)
         layout.addWidget(self.question_label)
         layout.addWidget(self.question_edit)
 
         self.question_image_button = QPushButton("Прикрепить изображение")
-        self.question_image_button.setStyleSheet("padding: 10px;")
+        self.question_image_button.setStyleSheet(button_style)
         self.question_image_button.clicked.connect(self.choose_question_image)
         layout.addWidget(self.question_image_button)
 
@@ -636,20 +801,20 @@ class AddQuestionDialog(QDialog):
 
         btn_layout = QHBoxLayout()
         self.add_row_btn = QPushButton("Добавить ответ")
-        self.add_row_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.add_row_btn.setStyleSheet(button_style)
         self.add_row_btn.clicked.connect(lambda: self.add_row())
         self.remove_row_btn = QPushButton("Удалить выбранный ответ")
-        self.remove_row_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.remove_row_btn.setStyleSheet(button_style)
         self.remove_row_btn.clicked.connect(self.remove_row)
         btn_layout.addWidget(self.add_row_btn)
         btn_layout.addWidget(self.remove_row_btn)
         layout.addLayout(btn_layout)
 
         self.save_btn = QPushButton("Сохранить")
-        self.save_btn.setStyleSheet("padding: 10px;")
+        self.save_btn.setStyleSheet(button_style)
         self.save_btn.clicked.connect(self.save_question)
         self.cancel_btn = QPushButton("Отмена")
-        self.cancel_btn.setStyleSheet("padding: 10px;")
+        self.cancel_btn.setStyleSheet(button_style)
         self.cancel_btn.clicked.connect(self.reject)
         layout.addWidget(self.save_btn)
         layout.addWidget(self.cancel_btn)
@@ -708,7 +873,7 @@ class AddQuestionDialog(QDialog):
         penalty_combo.setCurrentIndex(index)
         self.answers_table.setCellWidget(row, 2, penalty_combo)
         image_button = QPushButton("Прикрепить изображение")
-        image_button.setStyleSheet("padding: 8px; font-size: 10pt;")
+        image_button.setStyleSheet(button_style)
         image_button.clicked.connect(lambda _, btn=image_button: self.choose_answer_image(btn))
         image_button.imageData = answer_image
         if answer_image:
@@ -723,7 +888,9 @@ class AddQuestionDialog(QDialog):
     def save_question(self):
         question_text = self.question_edit.text().strip()
         if not question_text:
-            QMessageBox.warning(self, "Ошибка", "Введите текст вопроса!")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Введите текст вопроса!")
             return
         qtype = "single" if self.type_combo.currentIndex() == 0 else "multiple"
         answers = []
@@ -748,12 +915,16 @@ class AddQuestionDialog(QDialog):
                         "image": answer_image
                     })
         if len(answers) < 2:
-            QMessageBox.warning(self, "Ошибка", "Должно быть минимум два ответа!")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Должно быть минимум два ответа!")
             return
         if qtype == "single":
             correct_count = sum(1 for ans in answers if ans["correct"])
             if correct_count != 1:
-                QMessageBox.warning(self, "Ошибка", "Для вопроса с одним правильным ответом должен быть ровно один правильный вариант!")
+                msg_box = QMessageBox()
+                msg_box.setStyleSheet(q_message_box)
+                msg_box.warning(self, "Ошибка", "Для вопроса с одним правильным ответом должен быть ровно один правильный вариант!")
                 return
         self.question_result = {
             "question": question_text,
@@ -781,7 +952,7 @@ class EditWindow(QMainWindow):
                 font-size: 12pt;
                 padding: 5px;
                 background-color: #ffffff;
-                border: 1px solid #d9d9d9;
+                border: 2px solid #000000;
                 border-radius: 5px;
             }
         """)
@@ -808,7 +979,7 @@ class EditWindow(QMainWindow):
                 font-size: 12pt;
                 padding: 5px;
                 background-color: #ffffff;
-                border: 1px solid #d9d9d9;
+                border: 2px solid #000000;
                 border-radius: 5px;
             }
         """)
@@ -816,28 +987,28 @@ class EditWindow(QMainWindow):
 
         btn_layout = QVBoxLayout()
         self.add_test_btn = QPushButton("Добавить тест")
-        self.add_test_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.add_test_btn.setStyleSheet(button_style)
         self.add_test_btn.clicked.connect(self.add_test)
         self.delete_test_btn = QPushButton("Удалить тест")
-        self.delete_test_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.delete_test_btn.setStyleSheet(button_style)
         self.delete_test_btn.clicked.connect(self.delete_test)
         self.add_question_btn = QPushButton("Добавить вопрос")
-        self.add_question_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.add_question_btn.setStyleSheet(button_style)
         self.add_question_btn.clicked.connect(self.add_question)
         self.delete_question_btn = QPushButton("Удалить вопрос")
-        self.delete_question_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.delete_question_btn.setStyleSheet(button_style)
         self.delete_question_btn.clicked.connect(self.delete_question)
         self.edit_question_btn = QPushButton("Редактировать вопрос")
-        self.edit_question_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.edit_question_btn.setStyleSheet(button_style)
         self.edit_question_btn.clicked.connect(self.edit_question)
         self.change_password_btn = QPushButton("Сменить пароль")
-        self.change_password_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.change_password_btn.setStyleSheet(button_style)
         self.change_password_btn.clicked.connect(self.change_password)
         self.set_results_path_btn = QPushButton("Изменить путь сохранения результатов")
-        self.set_results_path_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.set_results_path_btn.setStyleSheet(button_style)
         self.set_results_path_btn.clicked.connect(self.set_results_path)
         self.view_results_btn = QPushButton("Просмотр результатов")
-        self.view_results_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.view_results_btn.setStyleSheet(button_style)
         self.view_results_btn.clicked.connect(self.view_results)
         for btn in [self.add_test_btn, self.delete_test_btn, self.add_question_btn,
                     self.delete_question_btn, self.edit_question_btn, self.change_password_btn,
@@ -885,7 +1056,9 @@ class EditWindow(QMainWindow):
     def add_question(self):
         current_test_index = self.tests_list.currentRow()
         if current_test_index < 0:
-            QMessageBox.warning(self, "Ошибка", "Выберите тест!")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Выберите тест!")
             return
         dialog = AddQuestionDialog(None, self)
         if dialog.exec_() == QDialog.Accepted:
@@ -898,7 +1071,9 @@ class EditWindow(QMainWindow):
         current_test_index = self.tests_list.currentRow()
         current_question_index = self.questions_list.currentRow()
         if current_test_index < 0 or current_question_index < 0:
-            QMessageBox.warning(self, "Ошибка", "Выберите вопрос для удаления!")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Выберите вопрос для удаления!")
             return
         confirm = QMessageBox.question(self, "Подтверждение", "Удалить выбранный вопрос?")
         if confirm == QMessageBox.Yes:
@@ -910,7 +1085,9 @@ class EditWindow(QMainWindow):
         current_test_index = self.tests_list.currentRow()
         current_question_index = self.questions_list.currentRow()
         if current_test_index < 0 or current_question_index < 0:
-            QMessageBox.warning(self, "Ошибка", "Выберите вопрос для редактирования!")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Выберите вопрос для редактирования!")
             return
         question_data = data_manager.data["tests"][current_test_index]["questions"][current_question_index]
         dialog = AddQuestionDialog(question_data, self)
@@ -928,16 +1105,22 @@ class EditWindow(QMainWindow):
         if directory:
             data_manager.data["results_path"] = directory
             data_manager.save_data(data_manager.data)
-            QMessageBox.information(self, "Успех", "Путь сохранения результатов изменён.")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Путь сохранения результатов изменён.")
 
     def view_results(self):
         results_path = data_manager.data.get("results_path", os.path.abspath("results"))
         if not os.path.exists(results_path):
-            QMessageBox.warning(self, "Ошибка", "Директория с результатами не существует.")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.warning(self, "Ошибка", "Директория с результатами не существует.")
             return
         files = [f for f in os.listdir(results_path) if f.startswith("TEST-") and f.endswith(".enc")]
         if not files:
-            QMessageBox.information(self, "Информация", "Файлы с результатами не найдены.")
+            msg_box = QMessageBox()
+            msg_box.setStyleSheet(q_message_box)
+            msg_box.information(self, "Информация", "Файлы с результатами не найдены.")
             return
         dialog = QDialog(self)
         dialog.setWindowTitle("Просмотр результатов")
@@ -951,9 +1134,9 @@ class EditWindow(QMainWindow):
         layout.addWidget(result_text)
         btn_layout = QHBoxLayout()
         open_btn = QPushButton("Открыть")
-        open_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        open_btn.setStyleSheet(button_style)
         close_btn = QPushButton("Закрыть")
-        close_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        close_btn.setStyleSheet(button_style)
         btn_layout.addWidget(open_btn)
         btn_layout.addWidget(close_btn)
         layout.addLayout(btn_layout)
@@ -1004,6 +1187,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Приложение для тестирования")
         self.setMinimumSize(800, 600)
         self.create_menu()
+        self.setStyleSheet("""
+            background: qlineargradient(
+                x1: 0, y1: 0, x2: 1, y2: 1,
+                stop: 0 #A4D4F9, stop: 1 #005392
+            );
+        """)
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout()
@@ -1012,54 +1201,32 @@ class MainWindow(QMainWindow):
         title_label = QLabel("Приложение для тестирования")
         title_label.setFont(QFont("Segoe UI", 18, QFont.Bold))
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet(label_style)
         layout.addWidget(title_label)
 
         test_button = QPushButton("Тестирование")
         test_button.setFont(QFont("Segoe UI", 14))
-        test_button.setStyleSheet("""
-            QPushButton {
-                background-color: #d9d9d9;
-                color: #2b2b2b;
-                border: none;
-                padding: 10px;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #aeaeae;
-            }
-        """)
+        test_button.setStyleSheet(button_style)
         test_button.clicked.connect(self.start_test)
         layout.addWidget(test_button)
 
         edit_button = QPushButton("Редактирование")
         edit_button.setFont(QFont("Segoe UI", 14))
-        edit_button.setStyleSheet("""
-            QPushButton {
-                background-color: #d9d9d9;
-                color: #2b2b2b;
-                border: none;
-                padding: 10px;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #aeaeae;
-            }
-        """)
+        edit_button.setStyleSheet(button_style)
         edit_button.clicked.connect(self.start_edit)
         layout.addWidget(edit_button)
 
     def create_menu(self):
         menubar = QMenuBar(self)
         self.setMenuBar(menubar)
-        # Дополнительное меню можно добавить по необходимости
 
     def start_test(self):
         login_dialog = StudentLoginDialog(self)
         if login_dialog.exec_() == QDialog.Accepted:
             student_name = login_dialog.get_name()
             if not student_name:
-                QMessageBox.warning(self, "Ошибка", "Введите имя!")
+                msg_box = QMessageBox()
+                msg_box.setStyleSheet(q_message_box)
+                msg_box.warning(self, "Ошибка", "Введите имя!")
                 return
             dialog = TestSelectionDialog(self)
             if dialog.exec_() == QDialog.Accepted:
