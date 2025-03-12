@@ -9,12 +9,9 @@ from PyQt5.QtWidgets import (
     QButtonGroup, QRadioButton, QFileDialog, QTextEdit, QMenuBar, QAction
 )
 from PyQt5.QtCore import Qt
-<<<<<<< HEAD
+
 from PyQt5.QtGui import QPixmap, QFont
-=======
-from PyQt5.QtGui import QPixmap
 from docx import Document
->>>>>>> 69d2547181a4d6835c93cd5e3272451c2fb82e53
 
 # ===================== Универсальные стили =====================
 label_style = """
@@ -760,7 +757,7 @@ class AddQuestionDialog(QDialog):
     def __init__(self, question_data=None, parent=None):
         super(AddQuestionDialog, self).__init__(parent)
         self.setWindowTitle("Добавить вопрос" if question_data is None else "Редактировать вопрос")
-        self.setMinimumSize(700, 500)
+        self.setMinimumSize(1200, 800)
         self.question_data = question_data
         self.question_image_data = None  
         layout = QVBoxLayout()
@@ -789,7 +786,11 @@ class AddQuestionDialog(QDialog):
         self.answers_table.setStyleSheet(tablewidget_style)
         self.answers_table.setColumnCount(4)
         self.answers_table.setHorizontalHeaderLabels(["Ответ", "Правильный", "Штраф", "Изображение"])
-        self.answers_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.answers_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)  # Растянуть первый столбец
+        self.answers_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Подогнать второй столбец по содержимому
+        self.answers_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Подогнать третий столбец по содержимому
+        self.answers_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Подогнать четвертый столбец по содержимому
+        
         self.answers_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         layout.addWidget(self.answers_table)
 
@@ -873,6 +874,9 @@ class AddQuestionDialog(QDialog):
         if answer_image:
             image_button.setText("Изменить изображение")
         self.answers_table.setCellWidget(row, 3, image_button)
+
+        for i in range(self.answers_table.rowCount()):
+            self.answers_table.setRowHeight(i, 50)
 
     def remove_row(self):
         indices = self.answers_table.selectionModel().selectedRows()
