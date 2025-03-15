@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
     QButtonGroup, QRadioButton, QFileDialog, QTextEdit, QMenuBar, QAction
 )
 from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QSize
 
 from PyQt5.QtGui import QPixmap, QFont
 from docx import Document
@@ -27,7 +28,7 @@ label_style = """
 combobox_style = """
     QComboBox {
         font-family: "Segoe UI", Arial, sans-serif;
-        font-size: 12pt;
+        font-size: 20pt;
         padding: 5px;
         border: 2px solid #000;
         border-radius: 5px;
@@ -43,7 +44,7 @@ combobox_style = """
     }
     QComboBox QAbstractItemView {
         font-family: "Segoe UI", Arial, sans-serif;
-        font-size: 12pt;
+        font-size: 20pt;
         background-color: #ffffff;
         border: 2px solid #000;
         border-radius: 5px;
@@ -54,7 +55,7 @@ combobox_style = """
 tablewidget_style = """
     QTableWidget {
         font-family: "Segoe UI", Arial, sans-serif;
-        font-size: 11pt;
+        font-size: 20pt;
         color: #2b2b2b;
         background-color: #ffffff;
         gridline-color: #aeaeae;
@@ -64,7 +65,7 @@ tablewidget_style = """
         background-color: #f7f7f7;
         padding: 5px;
         border: 1px solid #aeaeae;
-        font-size: 12pt;
+        font-size: 20pt;
         font-weight: bold;
     }
 """
@@ -73,7 +74,7 @@ tablewidget_style = """
 password_edit_style = """
     QLineEdit {
         padding: 10px;
-        font-size: 14px;
+        font-size: 20px;
         border: 2px solid #ccc;
         border-radius: 5px;
         background: #fff;
@@ -88,7 +89,7 @@ password_edit_style = """
 button_style = """
     QPushButton {
         background-color: #fff;
-        font-size: 20px;
+        font-size: 27px;
         color: #000000;
         border: 2px solid;
         padding: 10px;
@@ -101,7 +102,7 @@ button_style = """
 
 button_not_enable = """
     QPushButton {
-        font-size: 20px;
+        font-size: 27px;
         color: #000000;
         border: 2px solid;
         padding: 10px;
@@ -113,7 +114,7 @@ button_not_enable = """
 q_message_box = """
     QMessageBox {
         background-color: #fff;
-        font-size: 14px;
+        font-size: 20px;
     }
     QMessageBox QLabel {
         color: #000; /* Цвет текста */
@@ -131,6 +132,56 @@ q_message_box = """
         background-color: #aeaeae; /* Цвет кнопки при наведении */
     }
 """
+
+app_style = """
+    QWidget {
+        background-color: #f0f0f0;
+        font-family: Arial;
+        font-size: 14px;
+    }
+    QListWidget {
+        background-color: white;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 5px;
+    }
+    QTextEdit {
+        background-color: white;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 5px;
+        font-size: 14px;
+    }
+    QPushButton {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+    QPushButton:hover {
+        background-color: #45a049;
+    }
+    QMessageBox {
+        background-color: white;
+        font-size: 14px;
+    }
+    QMessageBox QLabel {
+        color: #333;
+    }
+    QMessageBox QPushButton {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 5px 10px;
+    }
+    QMessageBox QPushButton:hover {
+        background-color: #45a049;
+    }
+"""
+
 
 # ===================== Функции хэширования пароля =====================
 def hash_password(password, salt="some_salt"):
@@ -326,7 +377,7 @@ class TestSelectionDialog(QDialog):
         self.test_list.setStyleSheet("""
             QListWidget {
                 font-family: "Segoe UI", Arial, sans-serif;
-                font-size: 12pt;
+                font-size: 20pt;
                 padding: 5px;
                 background-color: #ffffff;
                 border: 1px solid #d9d9d9;
@@ -402,7 +453,7 @@ class TestWindow(QDialog):
         self.question_label = QLabel()
         self.question_label.setStyleSheet("""
             QLabel {
-                font-size: 16pt;
+                font-size: 20pt;
                 font-weight: bold;
                 padding: 10px;
                 border: 2px solid #aeaeae;
@@ -494,7 +545,7 @@ class TestWindow(QDialog):
                     rb.setStyleSheet("""
                         QRadioButton {
                             background: #fff;
-                            font-size: 12pt;
+                            font-size: 20pt;
                             padding: 5px;
                         }
                     """)
@@ -528,7 +579,7 @@ class TestWindow(QDialog):
                     cb = QCheckBox(answer.get("text", ""))
                     cb.setStyleSheet("""
                         QCheckBox {
-                            font-size: 12pt;
+                            font-size: 20pt;
                             padding: 5px;
                         }
                     """)
@@ -947,7 +998,7 @@ class EditWindow(QMainWindow):
         self.tests_list.setStyleSheet("""
             QListWidget {
                 font-family: "Segoe UI", Arial, sans-serif;
-                font-size: 12pt;
+                font-size: 20pt;
                 padding: 5px;
                 background-color: #ffffff;
                 border: 2px solid #000000;
@@ -974,7 +1025,7 @@ class EditWindow(QMainWindow):
         self.questions_list.setStyleSheet("""
             QListWidget {
                 font-family: "Segoe UI", Arial, sans-serif;
-                font-size: 12pt;
+                font-size: 20pt;
                 padding: 5px;
                 background-color: #ffffff;
                 border: 2px solid #000000;
@@ -1114,7 +1165,24 @@ class EditWindow(QMainWindow):
             msg_box.setStyleSheet(q_message_box)
             msg_box.warning(self, "Ошибка", "Директория с результатами не существует.")
             return
-        files = [f for f in os.listdir(results_path) if f.startswith("TEST-") and f.endswith(".enc")]
+        
+        files = []
+        print(f"Начало обработки директории: {results_path}")  # Отладочная печать
+        
+        # Получаем список файлов, проверяя уникальность
+        seen = set()  # Множество для отслеживания уже добавленных файлов
+        for f in os.listdir(results_path):
+            if f.startswith("TEST-") and f.endswith(".enc"):
+                if f not in seen:
+                    files.append(f)
+                    seen.add(f)  # Добавляем файл в множество, чтобы избежать дублирования
+                    print(f"Добавлен файл: {f}")  # Отладочная печать
+                else:
+                    print(f"Файл уже добавлен: {f}")  # Отладочная печать
+        
+        print(f"Всего найдено файлов: {len(files)}")  # Отладочная печать
+
+
         if not files:
             msg_box = QMessageBox()
             msg_box.setStyleSheet(q_message_box)
@@ -1129,6 +1197,21 @@ class EditWindow(QMainWindow):
         layout.addWidget(list_widget)
         result_text = QTextEdit()
         result_text.setReadOnly(True)
+
+        # Настройка QListWidget
+        list_widget.setStyleSheet("background-color: white;")  # Белый фон
+        font = QFont()
+        font.setPointSize(16)  # Увеличенный шрифт
+        list_widget.setFont(font)  # Применяем шрифт к QListWidget
+        layout.addWidget(list_widget)
+
+        result_text.setStyleSheet("background-color: white;")
+        result_text.setFont(font)
+
+        list_widget.setMinimumSize(QSize(700, 300))
+        result_text.setMinimumSize(QSize(700, 300))  # Устанавливаем минимальный размер
+        layout.addWidget(result_text, stretch=1)  # Растягиваем QTextEdit внутри макета
+
         layout.addWidget(result_text)
         btn_layout = QHBoxLayout()
         open_btn = QPushButton("Открыть")
@@ -1197,18 +1280,18 @@ class MainWindow(QMainWindow):
         central_widget.setLayout(layout)
 
         title_label = QLabel("Приложение для тестирования")
-        title_label.setFont(QFont("Segoe UI", 18, QFont.Bold))
+        title_label.setFont(QFont("Segoe UI", 20, QFont.Bold))
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
 
         test_button = QPushButton("Тестирование")
-        test_button.setFont(QFont("Segoe UI", 14))
+        test_button.setFont(QFont("Segoe UI", 20))
         test_button.setStyleSheet(button_style)
         test_button.clicked.connect(self.start_test)
         layout.addWidget(test_button)
 
         edit_button = QPushButton("Редактирование")
-        edit_button.setFont(QFont("Segoe UI", 14))
+        edit_button.setFont(QFont("Segoe UI", 20))
         edit_button.setStyleSheet(button_style)
         edit_button.clicked.connect(self.start_edit)
         layout.addWidget(edit_button)
