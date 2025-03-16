@@ -346,6 +346,7 @@ class StudentLoginDialog(QDialog):
     def get_name(self):
         return self.name_edit.text().strip()
 
+# ===================== Диалог выбора теста =====================
 class TestSelectionDialog(QDialog):
     def __init__(self, parent=None):
         super(TestSelectionDialog, self).__init__(parent)
@@ -372,6 +373,8 @@ class TestSelectionDialog(QDialog):
 
     def load_tests(self):
         self.test_list.clear()
+        # Добавляем новый пункт "Итоговый тест"
+        self.test_list.addItem("Итоговый тест")
         tests = data_manager.data.get("tests", [])
         for test in tests:
             self.test_list.addItem(test.get("topic", "Без темы"))
@@ -379,20 +382,37 @@ class TestSelectionDialog(QDialog):
     def select_test(self):
         current_row = self.test_list.currentRow()
         if current_row >= 0:
-            self.selected_test = data_manager.data["tests"][current_row]
+            if current_row == 0:
+                # Формируем итоговый тест: для каждого теста берем 3 случайных вопроса (или все, если вопросов меньше 3)
+                final_questions = []
+                for test in data_manager.data.get("tests", []):
+                    questions = test.get("questions", [])
+                    if len(questions) <= 3:
+                        final_questions.extend(questions)
+                    else:
+                        final_questions.extend(random.sample(questions, 3))
+                # Перемешиваем итоговые вопросы
+                random.shuffle(final_questions)
+                self.selected_test = {"topic": "Итоговый тест", "questions": final_questions}
+            else:
+                # Индексы смещены: первый пункт – Итоговый тест, остальные соответствуют данным
+                self.selected_test = data_manager.data["tests"][current_row - 1]
             self.accept()
         else:
             QMessageBox.warning(self, "Ошибка", "Выберите тест!")
+
+
 
 # ===================== Окно проведения теста =====================
 class TestWindow(QDialog):
     def __init__(self, test_data, student_name, parent=None):
         super(TestWindow, self).__init__(parent)
+        self.test_data = test_data  # Добавляем сохранение данных теста
         self.setWindowTitle(f"Тест: {test_data.get('topic','')}")
         self.setMinimumSize(1280, 720)
-        self.test_data = test_data
-        self.student_name = student_name
+        # Получаем список вопросов и перемешиваем его
         self.questions = test_data.get("questions", [])
+        random.shuffle(self.questions)
         self.total_questions = len(self.questions)
         self.question_order = []
         for q in self.questions:
@@ -401,6 +421,7 @@ class TestWindow(QDialog):
             self.question_order.append(order)
         self.user_answers = [None] * self.total_questions
         self.current_index = 0
+        self.student_name = student_name
 
         self.layout = QVBoxLayout()
         self.nav_layout = QHBoxLayout()
@@ -1103,7 +1124,7 @@ class ResultsViewingTab(QWidget):
         
         self.tab_widget.addTab(individual_tab, "Индивидуальные результаты")
         
-        # Вкладка со сводной информацией
+        # Вкладка со сводной информацией по темам
         summary_tab = QWidget()
         summary_layout = QVBoxLayout(summary_tab)
         self.summary_table = QTableWidget()
@@ -1114,6 +1135,16 @@ class ResultsViewingTab(QWidget):
         self.summary_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         summary_layout.addWidget(self.summary_table)
         self.tab_widget.addTab(summary_tab, "Сводка по темам")
+        
+        # Новая вкладка "Итоги студентов"
+        students_tab = QWidget()
+        students_layout = QVBoxLayout(students_tab)
+        self.students_table = QTableWidget()
+        self.students_table.setStyleSheet(tablewidget_style)
+        self.students_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.students_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        students_layout.addWidget(self.students_table)
+        self.tab_widget.addTab(students_tab, "Итоги студентов")
         
         self.load_results()
         self.result_mapping = {}
@@ -1143,6 +1174,7 @@ class ResultsViewingTab(QWidget):
         self.name_filter.addItems(sorted(names))
         self.update_result_list()
         self.update_summary_table()
+        self.update_students_summary_table()
     
     def update_result_list(self):
         self.result_list.clear()
@@ -1152,7 +1184,7 @@ class ResultsViewingTab(QWidget):
         name_val = self.name_filter.currentText()
         for res in self.all_results:
             if (topic_val == "Все темы" or res.get("test_topic", "") == topic_val) and \
-            (name_val == "Все студенты" or res.get("student", "") == name_val):
+               (name_val == "Все студенты" or res.get("student", "") == name_val):
                 filtered.append(res)
         groups = defaultdict(list)
         for res in filtered:
@@ -1160,12 +1192,10 @@ class ResultsViewingTab(QWidget):
             groups[key].append(res)
         display_items = []
         for key, results in groups.items():
-            # Сортировка по времени с обработкой ошибок
             try:
                 results.sort(key=lambda r: datetime.datetime.fromisoformat(r.get("timestamp", "")))
             except:
                 results.sort(key=lambda r: r.get("timestamp", ""))
-            # Формирование display_text с уникальным временем
             for i, res in enumerate(results, start=1):
                 time_str = res.get("timestamp", "")
                 try:
@@ -1174,18 +1204,15 @@ class ResultsViewingTab(QWidget):
                 except:
                     pass
                 base_text = f'{res.get("student", "")} - {res.get("test_topic", "")}'
-                display_text = f'{base_text} ({time_str})'  # Всегда добавляем время
+                display_text = f'{base_text} ({time_str})'
                 display_items.append((display_text, res))
-        # Сортировка по времени
         display_items.sort(
             key=lambda x: datetime.datetime.fromisoformat(x[1].get("timestamp", "1970-01-01T00:00:00")),
-            reverse=True  # Новые результаты сверху
+            reverse=True
         )
-        # Заполнение списка
         for display_text, res in display_items:
             self.result_list.addItem(display_text)
             self.result_mapping[display_text] = res
-        # Автовыбор первого элемента
         if self.result_list.count() > 0:
             self.result_list.setCurrentRow(0)
             self.open_result()
@@ -1204,6 +1231,35 @@ class ResultsViewingTab(QWidget):
             self.summary_table.setItem(row, 0, QTableWidgetItem(topic))
             self.summary_table.setItem(row, 1, QTableWidgetItem(str(count)))
             self.summary_table.setItem(row, 2, QTableWidgetItem(f"{avg_percent:.1f}"))
+    
+    def update_students_summary_table(self):
+        # Формируем словарь: студент -> {тема: список процентов}
+        data = {}
+        topics = set()
+        for res in self.all_results:
+            student = res.get("student", "")
+            topic = res.get("test_topic", "Без темы")
+            topics.add(topic)
+            if student not in data:
+                data[student] = {}
+            if topic not in data[student]:
+                data[student][topic] = []
+            data[student][topic].append(res.get("percent", 0))
+        topics = sorted(topics)
+        students = sorted(data.keys())
+        self.students_table.setColumnCount(len(topics))
+        self.students_table.setRowCount(len(students))
+        self.students_table.setHorizontalHeaderLabels(topics)
+        self.students_table.setVerticalHeaderLabels(students)
+        for i, student in enumerate(students):
+            for j, topic in enumerate(topics):
+                scores = data[student].get(topic, [])
+                if scores:
+                    avg = sum(scores) / len(scores)
+                    text = f"{avg:.1f}%"
+                else:
+                    text = ""
+                self.students_table.setItem(i, j, QTableWidgetItem(text))
     
     def format_result(self, result):
         try:
@@ -1227,7 +1283,7 @@ class ResultsViewingTab(QWidget):
             html.append(f'<div style="background-color:{bg_color};"><strong>Баллы:</strong> {item.get("score", 0)}</div><br>')
         html.append(f'<div><strong>Итоговый балл:</strong> {result.get("total_score", 0)}</div>')
         html.append(f'<div><strong>Всего вопросов:</strong> {result.get("total_questions", 0)}</div>')
-        html.append(f'<div><strong>Процент прохождения:</strong> {result.get("percent", 0)}%</div>')
+        html.append(f'<div><strong>Процент прохождения:</strong> {round(result.get("percent", 0), 2)}%</div>')
         return "".join(html)
     
     def open_result(self):
@@ -1242,6 +1298,7 @@ class ResultsViewingTab(QWidget):
                 QMessageBox.warning(self, "Ошибка", "Результат не найден.")
         else:
             QMessageBox.warning(self, "Ошибка", "Выберите результат из списка.")
+
 
 # ===================== Главное окно режима редактирования (Администрирования) =====================
 class AdminWindow(QMainWindow):
@@ -1322,4 +1379,4 @@ if __name__ == "__main__":
     main_win.show()
     sys.exit(app.exec_())
 
-    # в режиме редактирования во вкладке "индивидуальные результаты" не работает просмотр результатов. Он начинает прогружать их только после сортировки. Сделай чтобы результаты читались
+   
