@@ -8,63 +8,169 @@ from PyQt5.QtWidgets import (
     QLabel, QLineEdit, QComboBox, QListWidget, QHBoxLayout, QMessageBox,
     QTableWidget, QTableWidgetItem, QCheckBox, QHeaderView, QAbstractItemView,
     QButtonGroup, QRadioButton, QFileDialog, QTextEdit, QMenuBar, QAction,
-    QTabWidget, QSplitter, QGridLayout, QSpacerItem, QSizePolicy
+    QTabWidget, QSplitter, QGridLayout, QSpacerItem, QSizePolicy, QScrollArea, QLayout
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QFont
 
-# ===================== Универсальные стили =====================
-label_style = """
-    QLabel {
-        font-family: "Segoe UI", Arial, sans-serif;
-        font-size: 14pt;
-        color: #2b2b2b;
-        padding: 5px;
-    }
+# ===================== Глобальные стили =====================
+GLOBAL_FONT_FAMILY = "Segoe UI"
+BASE_FONT_SIZE = "12pt"
+HEADER_FONT_SIZE = "14pt"
+
+base_style = f"""
+    font-family: "{GLOBAL_FONT_FAMILY}";
+    font-size: {BASE_FONT_SIZE};
+    color: #2b2b2b;
 """
 
-combobox_style = """
-    QComboBox {
-        font-family: "Segoe UI", Arial, sans-serif;
-        font-size: 12pt;
+header_style = f"""
+    font-family: "{GLOBAL_FONT_FAMILY}";
+    font-size: {HEADER_FONT_SIZE};
+    color: #2b2b2b;
+    font-weight: bold;
+"""
+
+label_style = f"""
+    QLabel {{
+        {base_style}
+        padding: 5px;
+    }}
+"""
+
+combobox_style = f"""
+    QComboBox {{
+        {base_style}
         padding: 5px;
         border: 1px solid #aeaeae;
         border-radius: 5px;
         background-color: #ffffff;
-        color: #2b2b2b;
-    }
-    QComboBox::drop-down {
+    }}
+    QComboBox::drop-down {{
         subcontrol-origin: padding;
         subcontrol-position: top right;
         width: 25px;
         border-left: 1px solid #aeaeae;
-    }
-    QComboBox QAbstractItemView {
-        font-family: "Segoe UI", Arial, sans-serif;
-        font-size: 12pt;
+    }}
+    QComboBox QAbstractItemView {{
+        {base_style}
         background-color: #ffffff;
         border: 1px solid #aeaeae;
         selection-background-color: #d9d9d9;
-    }
+    }}
 """
 
-tablewidget_style = """
-    QTableWidget {
-        font-family: "Segoe UI", Arial, sans-serif;
-        font-size: 11pt;
-        color: #2b2b2b;
+tablewidget_style = f"""
+    QTableWidget {{
+        {base_style}
         background-color: #ffffff;
         gridline-color: #aeaeae;
         border: 1px solid #aeaeae;
-    }
-    QHeaderView::section {
+    }}
+    QHeaderView::section {{
+        {header_style}
         background-color: #f7f7f7;
         padding: 5px;
         border: 1px solid #aeaeae;
-        font-size: 12pt;
-        font-weight: bold;
-    }
+    }}
 """
+
+button_style = f"""
+    QPushButton {{
+        {base_style}
+        background-color: #d9d9d9;
+        border: none;
+        padding: 10px;
+        border-radius: 5px;
+    }}
+    QPushButton:hover {{
+        background-color: #aeaeae;
+    }}
+"""
+
+radiobutton_style = f"""
+    QRadioButton {{
+        {base_style}
+        padding: 5px;
+    }}
+"""
+
+checkbox_style = f"""
+    QCheckBox {{
+        {base_style}
+        padding: 5px;
+    }}
+"""
+
+lineedit_style = f"""
+    QLineEdit {{
+        {base_style}
+        padding: 5px;
+        border: 1px solid #aeaeae;
+        border-radius: 5px;
+        background-color: #ffffff;
+    }}
+"""
+
+class ZoomableLabel(QLabel):
+    def __init__(self, pixmap, parent=None):
+        super(ZoomableLabel, self).__init__(parent)
+        self.originalPixmap = pixmap
+        self.zoomFactor = 1.0
+        self.setPixmap(self.originalPixmap)
+        self.setAlignment(Qt.AlignCenter)
+        self.setCursor(Qt.PointingHandCursor)
+        self.flag = True
+    
+    def mousePressEvent(self, event):
+        # Увеличиваем изображение при каждом нажатии на 10%
+        if self.flag:
+            self.flag = False
+            self.zoomFactor *= 2.0
+            new_width = int(self.originalPixmap.width() * self.zoomFactor)
+            new_height = int(self.originalPixmap.height() * self.zoomFactor)
+            self.setPixmap(self.originalPixmap.scaled(new_width, new_height, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        else:
+            self.flag = True
+            self.zoomFactor *= 0.5
+            new_width = int(self.originalPixmap.width() * self.zoomFactor)
+            new_height = int(self.originalPixmap.height() * self.zoomFactor)
+            self.setPixmap(self.originalPixmap.scaled(new_width, new_height, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+
+class ClickableLabel(QLabel):
+    def __init__(self, parent=None):
+        super(ClickableLabel, self).__init__(parent)
+        self.setCursor(Qt.PointingHandCursor)
+        self.originalPixmap = None  # Хранит оригинальное изображение
+
+    def mousePressEvent(self, event):
+        if self.originalPixmap:
+            self.open_enlarged_image()
+
+    def open_enlarged_image(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Просмотр изображения")
+        dialog.setWindowState(Qt.WindowMaximized)  # Открываем окно в максимизированном режиме
+        layout = QVBoxLayout(dialog)
+        
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        
+        # Контейнер с выравниванием по центру
+        container = QWidget()
+        container_layout = QHBoxLayout(container)
+        container_layout.setAlignment(Qt.AlignCenter)
+        
+        # Используем ZoomableLabel, который позволяет увеличивать изображение при нажатии
+        zoom_label = ZoomableLabel(self.originalPixmap)
+        container_layout.addWidget(zoom_label)
+        
+        scroll_area.setWidget(container)
+        layout.addWidget(scroll_area)
+        
+        dialog.exec_()
+
 
 # ===================== Функции хэширования пароля =====================
 def hash_password(password, salt="some_salt"):
@@ -153,8 +259,9 @@ class LoginDialog(QDialog):
         self.label.setStyleSheet(label_style)
         self.password_edit = QLineEdit()
         self.password_edit.setEchoMode(QLineEdit.Password)
+        self.password_edit.setStyleSheet(lineedit_style)
         self.ok_button = QPushButton("ОК")
-        self.ok_button.setStyleSheet("padding: 10px;")
+        self.ok_button.setStyleSheet(button_style)
         self.ok_button.clicked.connect(self.check_password)
         layout.addWidget(self.label)
         layout.addWidget(self.password_edit)
@@ -180,16 +287,19 @@ class ChangePasswordDialog(QDialog):
         self.current_label.setStyleSheet(label_style)
         self.current_edit = QLineEdit()
         self.current_edit.setEchoMode(QLineEdit.Password)
+        self.current_edit.setStyleSheet(lineedit_style)
         self.new_label = QLabel("Новый пароль:")
         self.new_label.setStyleSheet(label_style)
         self.new_edit = QLineEdit()
         self.new_edit.setEchoMode(QLineEdit.Password)
+        self.new_edit.setStyleSheet(lineedit_style)
         self.confirm_label = QLabel("Подтвердите новый пароль:")
         self.confirm_label.setStyleSheet(label_style)
         self.confirm_edit = QLineEdit()
         self.confirm_edit.setEchoMode(QLineEdit.Password)
+        self.confirm_edit.setStyleSheet(lineedit_style)
         self.ok_button = QPushButton("Сменить пароль")
-        self.ok_button.setStyleSheet("padding: 10px;")
+        self.ok_button.setStyleSheet(button_style)
         self.ok_button.clicked.connect(self.change_password)
         layout.addWidget(self.current_label)
         layout.addWidget(self.current_edit)
@@ -224,8 +334,9 @@ class StudentLoginDialog(QDialog):
         self.label = QLabel("Введите ваше имя:")
         self.label.setStyleSheet(label_style)
         self.name_edit = QLineEdit()
+        self.name_edit.setStyleSheet(lineedit_style)
         self.ok_button = QPushButton("Начать тест")
-        self.ok_button.setStyleSheet("padding: 10px;")
+        self.ok_button.setStyleSheet(button_style)
         self.ok_button.clicked.connect(self.accept)
         layout.addWidget(self.label)
         layout.addWidget(self.name_edit)
@@ -241,19 +352,18 @@ class TestSelectionDialog(QDialog):
         self.setWindowTitle("Выбор теста")
         layout = QVBoxLayout()
         self.test_list = QListWidget()
-        self.test_list.setStyleSheet("""
-            QListWidget {
-                font-family: "Segoe UI", Arial, sans-serif;
-                font-size: 12pt;
+        self.test_list.setStyleSheet(f"""
+            QListWidget {{
+                {base_style}
                 padding: 5px;
                 background-color: #ffffff;
                 border: 1px solid #d9d9d9;
                 border-radius: 5px;
-            }
+            }}
         """)
         self.load_tests()
         self.select_button = QPushButton("Выбрать")
-        self.select_button.setStyleSheet("padding: 10px;")
+        self.select_button.setStyleSheet(button_style)
         self.select_button.clicked.connect(self.select_test)
         layout.addWidget(self.test_list)
         layout.addWidget(self.select_button)
@@ -279,7 +389,7 @@ class TestWindow(QDialog):
     def __init__(self, test_data, student_name, parent=None):
         super(TestWindow, self).__init__(parent)
         self.setWindowTitle(f"Тест: {test_data.get('topic','')}")
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(1280, 720)
         self.test_data = test_data
         self.student_name = student_name
         self.questions = test_data.get("questions", [])
@@ -295,17 +405,17 @@ class TestWindow(QDialog):
         self.layout = QVBoxLayout()
         self.nav_layout = QHBoxLayout()
         self.prev_button = QPushButton("Предыдущий")
-        self.prev_button.setStyleSheet("padding: 10px;")
+        self.prev_button.setStyleSheet(button_style)
         self.prev_button.clicked.connect(self.go_prev)
         self.nav_combo = QComboBox()
         self.nav_combo.setStyleSheet(combobox_style)
         self.nav_combo.addItems([f"Вопрос {i+1}" for i in range(self.total_questions)])
         self.nav_combo.currentIndexChanged.connect(self.on_nav_change)
         self.next_button = QPushButton("Следующий")
-        self.next_button.setStyleSheet("padding: 10px;")
+        self.next_button.setStyleSheet(button_style)
         self.next_button.clicked.connect(self.go_next)
         self.finish_button = QPushButton("Завершить тест")
-        self.finish_button.setStyleSheet("padding: 10px;")
+        self.finish_button.setStyleSheet(button_style)
         self.finish_button.clicked.connect(self.finish_test_clicked)
         self.nav_layout.addWidget(self.prev_button)
         self.nav_layout.addWidget(self.nav_combo)
@@ -313,18 +423,19 @@ class TestWindow(QDialog):
         self.nav_layout.addWidget(self.finish_button)
         self.layout.addLayout(self.nav_layout)
 
-        self.question_image_label = QLabel()
+        # Используем кликабельную метку для изображения вопроса
+        self.question_image_label = ClickableLabel()
+        self.question_image_label.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.question_image_label)
         self.question_label = QLabel()
-        self.question_label.setStyleSheet("""
-            QLabel {
-                font-size: 16pt;
-                font-weight: bold;
+        self.question_label.setStyleSheet(f"""
+            QLabel {{
+                {header_style}
                 padding: 10px;
                 border: 2px solid #aeaeae;
                 border-radius: 8px;
                 background-color: #f7f7f7;
-            }
+            }}
         """)
         self.layout.addWidget(self.question_label)
 
@@ -378,10 +489,15 @@ class TestWindow(QDialog):
                 data = base64.b64decode(question["image"])
                 pixmap = QPixmap()
                 pixmap.loadFromData(data)
+                # Отображаем уменьшенную версию для вопроса
                 self.question_image_label.setPixmap(pixmap.scaledToWidth(300, Qt.SmoothTransformation))
+                # Сохраняем оригинальное изображение для увеличенного просмотра
+                self.question_image_label.originalPixmap = pixmap
             else:
                 self.question_image_label.clear()
+                self.question_image_label.originalPixmap = None  # Обязательно сбрасываем originalPixmap
             self.question_label.setText(f"Вопрос {self.current_index+1}: {question.get('question','')}")
+            # Очистка старых виджетов ответов
             for i in reversed(range(self.answers_layout.count())):
                 widget = self.answers_layout.itemAt(i).widget()
                 if widget:
@@ -396,12 +512,7 @@ class TestWindow(QDialog):
                     container_layout = QHBoxLayout()
                     container_layout.setContentsMargins(5, 5, 5, 5)
                     rb = QRadioButton(answer.get("text", ""))
-                    rb.setStyleSheet("""
-                        QRadioButton {
-                            font-size: 12pt;
-                            padding: 5px;
-                        }
-                    """)
+                    rb.setStyleSheet(radiobutton_style)
                     rb.original_index = orig_idx
                     rb.correct = answer.get("correct", False)
                     self.button_group.addButton(rb)
@@ -410,17 +521,23 @@ class TestWindow(QDialog):
                         data = base64.b64decode(answer["image"])
                         pixmap = QPixmap()
                         pixmap.loadFromData(data)
-                        img_label = QLabel()
+                        img_label = ClickableLabel()
+                        img_label.setAlignment(Qt.AlignCenter)
+                        # Отображаем уменьшенную версию для ответа
                         img_label.setPixmap(pixmap.scaledToWidth(100, Qt.SmoothTransformation))
+                        img_label.originalPixmap = pixmap  # Сохраняем оригинал для увеличения
                         container_layout.addWidget(img_label)
+                    else:
+                        # Если изображения нет, убедимся, что originalPixmap сброшен
+                        pass
                     container.setLayout(container_layout)
-                    container.setStyleSheet("""
-                        QWidget {
+                    container.setStyleSheet(f"""
+                        QWidget {{
                             border: 1px solid #d9d9d9;
                             border-radius: 5px;
                             margin-bottom: 5px;
                             background-color: #ffffff;
-                        }
+                        }}
                     """)
                     self.answers_layout.addWidget(container)
                     self.current_answer_widgets.append(rb)
@@ -431,12 +548,7 @@ class TestWindow(QDialog):
                     container_layout = QHBoxLayout()
                     container_layout.setContentsMargins(5, 5, 5, 5)
                     cb = QCheckBox(answer.get("text", ""))
-                    cb.setStyleSheet("""
-                        QCheckBox {
-                            font-size: 12pt;
-                            padding: 5px;
-                        }
-                    """)
+                    cb.setStyleSheet(checkbox_style)
                     cb.original_index = orig_idx
                     cb.correct = answer.get("correct", False)
                     cb.penalty = float(answer.get("penalty", 0))
@@ -445,17 +557,19 @@ class TestWindow(QDialog):
                         data = base64.b64decode(answer["image"])
                         pixmap = QPixmap()
                         pixmap.loadFromData(data)
-                        img_label = QLabel()
+                        img_label = ClickableLabel()
+                        img_label.setAlignment(Qt.AlignCenter)
                         img_label.setPixmap(pixmap.scaledToWidth(100, Qt.SmoothTransformation))
+                        img_label.originalPixmap = pixmap
                         container_layout.addWidget(img_label)
                     container.setLayout(container_layout)
-                    container.setStyleSheet("""
-                        QWidget {
+                    container.setStyleSheet(f"""
+                        QWidget {{
                             border: 1px solid #d9d9d9;
                             border-radius: 5px;
                             margin-bottom: 5px;
                             background-color: #ffffff;
-                        }
+                        }}
                     """)
                     self.answers_layout.addWidget(container)
                     self.current_answer_widgets.append(cb)
@@ -463,6 +577,7 @@ class TestWindow(QDialog):
             self.update_nav_controls()
         else:
             self.finish_test()
+
 
     def update_nav_controls(self):
         self.nav_combo.blockSignals(True)
@@ -582,8 +697,9 @@ class AddTestDialog(QDialog):
         self.label = QLabel("Название теста:")
         self.label.setStyleSheet(label_style)
         self.topic_edit = QLineEdit()
+        self.topic_edit.setStyleSheet(lineedit_style)
         self.ok_button = QPushButton("Добавить")
-        self.ok_button.setStyleSheet("padding: 10px;")
+        self.ok_button.setStyleSheet(button_style)
         self.ok_button.clicked.connect(self.add_test)
         layout.addWidget(self.label)
         layout.addWidget(self.topic_edit)
@@ -604,7 +720,7 @@ class AddQuestionDialog(QDialog):
     def __init__(self, question_data=None, parent=None):
         super(AddQuestionDialog, self).__init__(parent)
         self.setWindowTitle("Добавить вопрос" if question_data is None else "Редактировать вопрос")
-        self.setMinimumSize(700, 500)
+        self.setMinimumSize(1200, 700)
         self.question_data = question_data
         self.question_image_data = None  
         layout = QVBoxLayout()
@@ -612,11 +728,12 @@ class AddQuestionDialog(QDialog):
         self.question_label = QLabel("Текст вопроса:")
         self.question_label.setStyleSheet(label_style)
         self.question_edit = QLineEdit()
+        self.question_edit.setStyleSheet(lineedit_style)
         layout.addWidget(self.question_label)
         layout.addWidget(self.question_edit)
 
         self.question_image_button = QPushButton("Прикрепить изображение")
-        self.question_image_button.setStyleSheet("padding: 10px;")
+        self.question_image_button.setStyleSheet(button_style)
         self.question_image_button.clicked.connect(self.choose_question_image)
         layout.addWidget(self.question_image_button)
 
@@ -632,26 +749,29 @@ class AddQuestionDialog(QDialog):
         self.answers_table.setStyleSheet(tablewidget_style)
         self.answers_table.setColumnCount(4)
         self.answers_table.setHorizontalHeaderLabels(["Ответ", "Правильный", "Штраф", "Изображение"])
-        self.answers_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.answers_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)  # Растянуть первый столбец
+        self.answers_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Подогнать второй столбец по содержимому
+        self.answers_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Подогнать третий столбец по содержимому
+        self.answers_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Подогнать четвертый столбец по содержимому
         self.answers_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         layout.addWidget(self.answers_table)
 
         btn_layout = QHBoxLayout()
         self.add_row_btn = QPushButton("Добавить ответ")
-        self.add_row_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.add_row_btn.setStyleSheet(button_style)
         self.add_row_btn.clicked.connect(lambda: self.add_row())
         self.remove_row_btn = QPushButton("Удалить выбранный ответ")
-        self.remove_row_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.remove_row_btn.setStyleSheet(button_style)
         self.remove_row_btn.clicked.connect(self.remove_row)
         btn_layout.addWidget(self.add_row_btn)
         btn_layout.addWidget(self.remove_row_btn)
         layout.addLayout(btn_layout)
 
         self.save_btn = QPushButton("Сохранить")
-        self.save_btn.setStyleSheet("padding: 10px;")
+        self.save_btn.setStyleSheet(button_style)
         self.save_btn.clicked.connect(self.save_question)
         self.cancel_btn = QPushButton("Отмена")
-        self.cancel_btn.setStyleSheet("padding: 10px;")
+        self.cancel_btn.setStyleSheet(button_style)
         self.cancel_btn.clicked.connect(self.reject)
         layout.addWidget(self.save_btn)
         layout.addWidget(self.cancel_btn)
@@ -695,6 +815,7 @@ class AddQuestionDialog(QDialog):
         self.answers_table.setItem(row, 0, item)
         checkbox = QCheckBox()
         checkbox.setChecked(correct)
+        checkbox.setStyleSheet(checkbox_style)
         self.answers_table.setCellWidget(row, 1, checkbox)
         penalty_combo = QComboBox()
         penalty_combo.setStyleSheet(combobox_style)
@@ -710,12 +831,14 @@ class AddQuestionDialog(QDialog):
         penalty_combo.setCurrentIndex(index)
         self.answers_table.setCellWidget(row, 2, penalty_combo)
         image_button = QPushButton("Прикрепить изображение")
-        image_button.setStyleSheet("padding: 8px; font-size: 10pt;")
+        image_button.setStyleSheet(button_style)
         image_button.clicked.connect(lambda _, btn=image_button: self.choose_answer_image(btn))
         image_button.imageData = answer_image
         if answer_image:
             image_button.setText("Изменить изображение")
         self.answers_table.setCellWidget(row, 3, image_button)
+        for i in range(self.answers_table.rowCount()):
+            self.answers_table.setRowHeight(i, 50)
 
     def remove_row(self):
         indices = self.answers_table.selectionModel().selectedRows()
@@ -770,86 +893,76 @@ class EditWindow(QMainWindow):
     def __init__(self, parent=None):
         super(EditWindow, self).__init__(parent)
         self.setWindowTitle("Редактирование тестов")
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(1280, 720)
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
-        # Используем QSplitter для разделения верхней части (список тестов и вопросов) и нижней панели кнопок
         main_layout = QVBoxLayout(main_widget)
         splitter_main = QSplitter(Qt.Vertical)
         main_layout.addWidget(splitter_main)
-        # Верхняя часть: QSplitter с тестами и вопросами (слева и справа)
         top_splitter = QSplitter(Qt.Horizontal)
         self.tests_list = QListWidget()
-        self.tests_list.setStyleSheet("""
-            QListWidget {
-                font-family: "Segoe UI", Arial, sans-serif;
-                font-size: 12pt;
+        self.tests_list.setStyleSheet(f"""
+            QListWidget {{
+                {base_style}
                 padding: 5px;
                 background-color: #ffffff;
                 border: 1px solid #d9d9d9;
                 border-radius: 5px;
-            }
+            }}
         """)
         self.tests_list.itemClicked.connect(self.load_questions)
         top_splitter.addWidget(self.tests_list)
         self.questions_list = QListWidget()
-        self.questions_list.setStyleSheet("""
-            QListWidget {
-                font-family: "Segoe UI", Arial, sans-serif;
-                font-size: 12pt;
+        self.questions_list.setStyleSheet(f"""
+            QListWidget {{
+                {base_style}
                 padding: 5px;
                 background-color: #ffffff;
                 border: 1px solid #d9d9d9;
                 border-radius: 5px;
-            }
+            }}
         """)
         top_splitter.addWidget(self.questions_list)
         splitter_main.addWidget(top_splitter)
-        # Нижняя часть: панель кнопок (центрирована)
         buttons_widget = QWidget()
         buttons_layout = QHBoxLayout(buttons_widget)
         buttons_layout.addStretch()
-        # Слева: "Добавить тест" и "Удалить тест"
         vbox_left = QVBoxLayout()
         self.add_test_btn = QPushButton("Добавить тест")
-        self.add_test_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.add_test_btn.setStyleSheet(button_style)
         self.add_test_btn.clicked.connect(self.add_test)
         self.delete_test_btn = QPushButton("Удалить тест")
-        self.delete_test_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.delete_test_btn.setStyleSheet(button_style)
         self.delete_test_btn.clicked.connect(self.delete_test)
         vbox_left.addWidget(self.add_test_btn)
         vbox_left.addWidget(self.delete_test_btn)
-        # Центр: "Добавить вопрос", "Удалить вопрос", "Редактировать вопрос"
         vbox_center = QVBoxLayout()
         self.add_question_btn = QPushButton("Добавить вопрос")
-        self.add_question_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.add_question_btn.setStyleSheet(button_style)
         self.add_question_btn.clicked.connect(self.add_question)
         self.delete_question_btn = QPushButton("Удалить вопрос")
-        self.delete_question_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.delete_question_btn.setStyleSheet(button_style)
         self.delete_question_btn.clicked.connect(self.delete_question)
         self.edit_question_btn = QPushButton("Редактировать вопрос")
-        self.edit_question_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.edit_question_btn.setStyleSheet(button_style)
         self.edit_question_btn.clicked.connect(self.edit_question)
         vbox_center.addWidget(self.add_question_btn)
         vbox_center.addWidget(self.delete_question_btn)
         vbox_center.addWidget(self.edit_question_btn)
-        # Справа: "Просмотр результатов"
         vbox_right = QVBoxLayout()
         self.view_results_btn = QPushButton("Просмотр результатов")
-        self.view_results_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.view_results_btn.setStyleSheet(button_style)
         self.view_results_btn.clicked.connect(self.view_results)
         vbox_right.addWidget(self.view_results_btn)
-        # Еще правее: "Сменить пароль" и "Изменить путь сохранения результатов"
         vbox_far_right = QVBoxLayout()
         self.change_password_btn = QPushButton("Сменить пароль")
-        self.change_password_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.change_password_btn.setStyleSheet(button_style)
         self.change_password_btn.clicked.connect(self.change_password)
         self.set_results_path_btn = QPushButton("Изменить путь сохранения результатов")
-        self.set_results_path_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        self.set_results_path_btn.setStyleSheet(button_style)
         self.set_results_path_btn.clicked.connect(self.set_results_path)
         vbox_far_right.addWidget(self.change_password_btn)
         vbox_far_right.addWidget(self.set_results_path_btn)
-        # Собираем панели кнопок по центру
         buttons_layout.addLayout(vbox_left)
         buttons_layout.addSpacing(20)
         buttons_layout.addLayout(vbox_center)
@@ -876,7 +989,7 @@ class EditWindow(QMainWindow):
             self.questions_list.clear()
             for q in test.get("questions", []):
                 self.questions_list.addItem(q.get("question", ""))
-
+    
     def add_test(self):
         dialog = AddTestDialog(self)
         if dialog.exec_() == QDialog.Accepted:
@@ -953,14 +1066,12 @@ class EditWindow(QMainWindow):
             return
 
         dialog = QDialog(self)
-        # Используем стандартные кнопки окна (максимизация, закрытие)
         dialog.setWindowFlags(Qt.Window | Qt.WindowSystemMenuHint | Qt.WindowMaximizeButtonHint)
         dialog.setWindowTitle("Просмотр результатов")
-        dialog.setMinimumSize(800, 600)
+        dialog.setMinimumSize(1280, 720)
 
         tab_widget = QTabWidget()
 
-        # Вкладка 1: Индивидуальные результаты с QSplitter и фильтрами
         individual_tab = QWidget()
         individual_layout = QVBoxLayout()
         individual_tab.setLayout(individual_layout)
@@ -985,23 +1096,21 @@ class EditWindow(QMainWindow):
         splitter.addWidget(self.result_list)
         self.result_view = QTextEdit()
         self.result_view.setReadOnly(True)
-        self.result_view.setStyleSheet("font-size: 16pt;")
+        self.result_view.setStyleSheet(f"{base_style} font-size: 10pt;")
         splitter.addWidget(self.result_view)
         individual_layout.addWidget(splitter)
 
-        # Панель кнопок для индивидуальных результатов
         btn_layout = QHBoxLayout()
         open_btn = QPushButton("Открыть")
-        open_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        open_btn.setStyleSheet(button_style)
         close_btn = QPushButton("Закрыть")
-        close_btn.setStyleSheet("padding: 8px; font-size: 10pt;")
+        close_btn.setStyleSheet(button_style)
         btn_layout.addWidget(open_btn)
         btn_layout.addWidget(close_btn)
         individual_layout.addLayout(btn_layout)
 
         tab_widget.addTab(individual_tab, "Индивидуальные результаты")
 
-        # Вкладка 2: Сводка по темам тестов
         summary_tab = QWidget()
         summary_layout = QVBoxLayout()
         summary_tab.setLayout(summary_layout)
@@ -1051,10 +1160,7 @@ class EditWindow(QMainWindow):
                 results.sort(key=lambda r: datetime.datetime.fromisoformat(r.get("timestamp", "1970-01-01T00:00:00")))
                 for i, res in enumerate(results, start=1):
                     base_text = f'{res.get("student", "")} - {res.get("test_topic", "")}'
-                    if i > 1:
-                        display_text = f'{base_text} (Попытка {i})'
-                    else:
-                        display_text = base_text
+                    display_text = f'{base_text} (Попытка {i})' if i > 1 else base_text
                     display_items.append((display_text, res))
             display_items.sort(key=lambda x: datetime.datetime.fromisoformat(x[1].get("timestamp", "1970-01-01T00:00:00")))
             for display_text, res in display_items:
@@ -1103,7 +1209,6 @@ class EditWindow(QMainWindow):
         open_btn.clicked.connect(open_result)
         close_btn.clicked.connect(dialog.accept)
 
-        # Формируем сводку по темам
         topic_groups = defaultdict(list)
         for res in all_results:
             topic = res.get("test_topic", "Без темы")
@@ -1124,7 +1229,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         self.setWindowTitle("Приложение для тестирования")
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(1280, 720)
         self.create_menu()
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -1132,49 +1237,26 @@ class MainWindow(QMainWindow):
         central_widget.setLayout(layout)
 
         title_label = QLabel("Приложение для тестирования")
-        title_label.setFont(QFont("Segoe UI", 18, QFont.Bold))
+        title_label.setFont(QFont(GLOBAL_FONT_FAMILY, 18))
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet(label_style)
+        title_label.setStyleSheet(header_style)
         layout.addWidget(title_label)
 
         test_button = QPushButton("Тестирование")
-        test_button.setFont(QFont("Segoe UI", 14))
-        test_button.setStyleSheet("""
-            QPushButton {
-                background-color: #d9d9d9;
-                color: #2b2b2b;
-                border: none;
-                padding: 10px;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #aeaeae;
-            }
-        """)
+        test_button.setFont(QFont(GLOBAL_FONT_FAMILY, 14))
+        test_button.setStyleSheet(button_style)
         test_button.clicked.connect(self.start_test)
         layout.addWidget(test_button)
 
         edit_button = QPushButton("Редактирование")
-        edit_button.setFont(QFont("Segoe UI", 14))
-        edit_button.setStyleSheet("""
-            QPushButton {
-                background-color: #d9d9d9;
-                color: #2b2b2b;
-                border: none;
-                padding: 10px;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #aeaeae;
-            }
-        """)
+        edit_button.setFont(QFont(GLOBAL_FONT_FAMILY, 14))
+        edit_button.setStyleSheet(button_style)
         edit_button.clicked.connect(self.start_edit)
         layout.addWidget(edit_button)
 
     def create_menu(self):
         menubar = QMenuBar(self)
         self.setMenuBar(menubar)
-        # Дополнительное меню можно добавить по необходимости
 
     def start_test(self):
         login_dialog = StudentLoginDialog(self)
