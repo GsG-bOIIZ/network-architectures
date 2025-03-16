@@ -894,11 +894,27 @@ class EditWindow(QMainWindow):
         super(EditWindow, self).__init__(parent)
         self.setWindowTitle("Редактирование тестов")
         self.setMinimumSize(1280, 720)
-        main_widget = QWidget()
-        self.setCentralWidget(main_widget)
-        main_layout = QVBoxLayout(main_widget)
+        
+        # Создаем QTabWidget для двух вкладок
+        self.tabs = QTabWidget()
+        self.setCentralWidget(self.tabs)
+        
+        # Вкладка 1: Редактирование тестов
+        self.edit_tests_tab = QWidget()
+        self.tabs.addTab(self.edit_tests_tab, "Редактирование тестов")
+        self.init_edit_tests_tab()
+        
+        # Вкладка 2: Просмотр результатов
+        self.view_results_tab = QWidget()
+        self.tabs.addTab(self.view_results_tab, "Просмотр результатов")
+        self.init_view_results_tab()
+
+    def init_edit_tests_tab(self):
+        layout = QVBoxLayout(self.edit_tests_tab)
         splitter_main = QSplitter(Qt.Vertical)
-        main_layout.addWidget(splitter_main)
+        layout.addWidget(splitter_main)
+        
+        # Верхний сплиттер с двумя списками: тесты и вопросы
         top_splitter = QSplitter(Qt.Horizontal)
         self.tests_list = QListWidget()
         self.tests_list.setStyleSheet(f"""
@@ -912,6 +928,7 @@ class EditWindow(QMainWindow):
         """)
         self.tests_list.itemClicked.connect(self.load_questions)
         top_splitter.addWidget(self.tests_list)
+        
         self.questions_list = QListWidget()
         self.questions_list.setStyleSheet(f"""
             QListWidget {{
@@ -924,9 +941,13 @@ class EditWindow(QMainWindow):
         """)
         top_splitter.addWidget(self.questions_list)
         splitter_main.addWidget(top_splitter)
+        
+        # Панель кнопок под списками
         buttons_widget = QWidget()
         buttons_layout = QHBoxLayout(buttons_widget)
         buttons_layout.addStretch()
+        
+        # Блок кнопок для тестов
         vbox_left = QVBoxLayout()
         self.add_test_btn = QPushButton("Добавить тест")
         self.add_test_btn.setStyleSheet(button_style)
@@ -936,6 +957,8 @@ class EditWindow(QMainWindow):
         self.delete_test_btn.clicked.connect(self.delete_test)
         vbox_left.addWidget(self.add_test_btn)
         vbox_left.addWidget(self.delete_test_btn)
+        
+        # Блок кнопок для вопросов
         vbox_center = QVBoxLayout()
         self.add_question_btn = QPushButton("Добавить вопрос")
         self.add_question_btn.setStyleSheet(button_style)
@@ -949,32 +972,87 @@ class EditWindow(QMainWindow):
         vbox_center.addWidget(self.add_question_btn)
         vbox_center.addWidget(self.delete_question_btn)
         vbox_center.addWidget(self.edit_question_btn)
+        
+        # Блок настроек
         vbox_right = QVBoxLayout()
-        self.view_results_btn = QPushButton("Просмотр результатов")
-        self.view_results_btn.setStyleSheet(button_style)
-        self.view_results_btn.clicked.connect(self.view_results)
-        vbox_right.addWidget(self.view_results_btn)
-        vbox_far_right = QVBoxLayout()
         self.change_password_btn = QPushButton("Сменить пароль")
         self.change_password_btn.setStyleSheet(button_style)
         self.change_password_btn.clicked.connect(self.change_password)
         self.set_results_path_btn = QPushButton("Изменить путь сохранения результатов")
         self.set_results_path_btn.setStyleSheet(button_style)
         self.set_results_path_btn.clicked.connect(self.set_results_path)
-        vbox_far_right.addWidget(self.change_password_btn)
-        vbox_far_right.addWidget(self.set_results_path_btn)
+        vbox_right.addWidget(self.change_password_btn)
+        vbox_right.addWidget(self.set_results_path_btn)
+        
         buttons_layout.addLayout(vbox_left)
         buttons_layout.addSpacing(20)
         buttons_layout.addLayout(vbox_center)
         buttons_layout.addSpacing(20)
         buttons_layout.addLayout(vbox_right)
-        buttons_layout.addSpacing(20)
-        buttons_layout.addLayout(vbox_far_right)
         buttons_layout.addStretch()
+        
         splitter_main.addWidget(buttons_widget)
-
         self.load_tests()
 
+    def init_view_results_tab(self):
+        layout = QVBoxLayout(self.view_results_tab)
+        
+        # Верхняя панель с фильтрами
+        filter_layout = QHBoxLayout()
+        self.topic_filter = QComboBox()
+        self.topic_filter.setEditable(True)
+        self.topic_filter.setStyleSheet(combobox_style)
+        self.topic_filter.addItem("Все темы")
+        self.name_filter = QComboBox()
+        self.name_filter.setEditable(True)
+        self.name_filter.setStyleSheet(combobox_style)
+        self.name_filter.addItem("Все студенты")
+        filter_layout.addWidget(QLabel("По теме:"))
+        filter_layout.addWidget(self.topic_filter)
+        filter_layout.addWidget(QLabel("По имени:"))
+        filter_layout.addWidget(self.name_filter)
+        layout.addLayout(filter_layout)
+        
+        # Основной сплиттер: список результатов и детальный просмотр
+        splitter = QSplitter(Qt.Vertical)
+        self.result_list = QListWidget()
+        splitter.addWidget(self.result_list)
+        self.result_view = QTextEdit()
+        self.result_view.setReadOnly(True)
+        self.result_view.setStyleSheet(f"{base_style} font-size: 10pt;")
+        splitter.addWidget(self.result_view)
+        layout.addWidget(splitter)
+        
+        # Кнопки управления
+        btn_layout = QHBoxLayout()
+        open_btn = QPushButton("Открыть")
+        open_btn.setStyleSheet(button_style)
+        close_btn = QPushButton("Закрыть")
+        close_btn.setStyleSheet(button_style)
+        btn_layout.addWidget(open_btn)
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+        
+        # Табуляция результатов по темам (сводная информация)
+        summary_label = QLabel("Сводка по темам")
+        summary_label.setStyleSheet(header_style)
+        layout.addWidget(summary_label)
+        self.summary_table = QTableWidget()
+        self.summary_table.setStyleSheet(tablewidget_style)
+        self.summary_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.summary_table.setColumnCount(3)
+        self.summary_table.setHorizontalHeaderLabels(["Тема теста", "Кол-во студентов", "Средний балл (%)"])
+        self.summary_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        layout.addWidget(self.summary_table)
+        
+        # Загрузка и фильтрация результатов
+        self.load_results()
+        self.topic_filter.currentTextChanged.connect(self.update_result_list)
+        self.name_filter.currentTextChanged.connect(self.update_result_list)
+        open_btn.clicked.connect(self.open_result)
+        close_btn.clicked.connect(lambda: self.result_view.clear())
+
+    # Методы для работы с вкладкой "Редактирование тестов"
     def load_tests(self):
         self.tests_list.clear()
         tests = data_manager.data.get("tests", [])
@@ -1055,174 +1133,109 @@ class EditWindow(QMainWindow):
             data_manager.save_data(data_manager.data)
             QMessageBox.information(self, "Успех", "Путь сохранения результатов изменён.")
 
-    def view_results(self):
+    # Методы для работы с вкладкой "Просмотр результатов"
+    def load_results(self):
         results_path = data_manager.data.get("results_path", os.path.abspath("results"))
         if not os.path.exists(results_path):
             QMessageBox.warning(self, "Ошибка", "Директория с результатами не существует.")
             return
         files = [f for f in os.listdir(results_path) if f.startswith("TEST-") and f.endswith(".enc")]
-        if not files:
-            QMessageBox.information(self, "Информация", "Файлы с результатами не найдены.")
-            return
-
-        dialog = QDialog(self)
-        dialog.setWindowFlags(Qt.Window | Qt.WindowSystemMenuHint | Qt.WindowMaximizeButtonHint)
-        dialog.setWindowTitle("Просмотр результатов")
-        dialog.setMinimumSize(1280, 720)
-
-        tab_widget = QTabWidget()
-
-        individual_tab = QWidget()
-        individual_layout = QVBoxLayout()
-        individual_tab.setLayout(individual_layout)
-
-        filter_layout = QHBoxLayout()
-        self.topic_filter = QComboBox()
-        self.topic_filter.setEditable(True)
-        self.topic_filter.setStyleSheet(combobox_style)
-        self.topic_filter.addItem("Все темы")
-        self.name_filter = QComboBox()
-        self.name_filter.setEditable(True)
-        self.name_filter.setStyleSheet(combobox_style)
-        self.name_filter.addItem("Все студенты")
-        filter_layout.addWidget(QLabel("По теме:"))
-        filter_layout.addWidget(self.topic_filter)
-        filter_layout.addWidget(QLabel("По имени:"))
-        filter_layout.addWidget(self.name_filter)
-        individual_layout.addLayout(filter_layout)
-
-        splitter = QSplitter(Qt.Vertical)
-        self.result_list = QListWidget()
-        splitter.addWidget(self.result_list)
-        self.result_view = QTextEdit()
-        self.result_view.setReadOnly(True)
-        self.result_view.setStyleSheet(f"{base_style} font-size: 10pt;")
-        splitter.addWidget(self.result_view)
-        individual_layout.addWidget(splitter)
-
-        btn_layout = QHBoxLayout()
-        open_btn = QPushButton("Открыть")
-        open_btn.setStyleSheet(button_style)
-        close_btn = QPushButton("Закрыть")
-        close_btn.setStyleSheet(button_style)
-        btn_layout.addWidget(open_btn)
-        btn_layout.addWidget(close_btn)
-        individual_layout.addLayout(btn_layout)
-
-        tab_widget.addTab(individual_tab, "Индивидуальные результаты")
-
-        summary_tab = QWidget()
-        summary_layout = QVBoxLayout()
-        summary_tab.setLayout(summary_layout)
-        summary_table = QTableWidget()
-        summary_table.setStyleSheet(tablewidget_style)
-        summary_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        summary_table.setColumnCount(3)
-        summary_table.setHorizontalHeaderLabels(["Тема теста", "Кол-во студентов", "Средний балл (%)"])
-        summary_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        summary_layout.addWidget(summary_table)
-        tab_widget.addTab(summary_tab, "Сводка по темам")
-
-        main_layout = QVBoxLayout()
-        main_layout.addWidget(tab_widget)
-        dialog.setLayout(main_layout)
-
+        self.all_results = []
         rm = ResultManager(results_path)
-        all_results = []
         for f in files:
             filepath = os.path.join(results_path, f)
             res = rm.load_result(filepath)
             if res:
                 res["_filename"] = f
-                all_results.append(res)
-
-        topics = set(res.get("test_topic", "") for res in all_results)
-        names = set(res.get("student", "") for res in all_results)
+                self.all_results.append(res)
+        topics = set(res.get("test_topic", "") for res in self.all_results)
+        names = set(res.get("student", "") for res in self.all_results)
+        self.topic_filter.clear()
+        self.topic_filter.addItem("Все темы")
         self.topic_filter.addItems(sorted(topics))
+        self.name_filter.clear()
+        self.name_filter.addItem("Все студенты")
         self.name_filter.addItems(sorted(names))
+        self.update_result_list()
+        self.update_summary_table()
 
-        def update_result_list():
-            self.result_list.clear()
-            self.result_mapping = {}
-            filtered = []
-            topic_val = self.topic_filter.currentText()
-            name_val = self.name_filter.currentText()
-            for res in all_results:
-                if (topic_val == "Все темы" or res.get("test_topic", "") == topic_val) and \
-                   (name_val == "Все студенты" or res.get("student", "") == name_val):
-                    filtered.append(res)
-            groups = defaultdict(list)
-            for res in filtered:
-                key = (res.get("student", ""), res.get("test_topic", ""))
-                groups[key].append(res)
-            display_items = []
-            for key, results in groups.items():
-                results.sort(key=lambda r: datetime.datetime.fromisoformat(r.get("timestamp", "1970-01-01T00:00:00")))
-                for i, res in enumerate(results, start=1):
-                    base_text = f'{res.get("student", "")} - {res.get("test_topic", "")}'
-                    display_text = f'{base_text} (Попытка {i})' if i > 1 else base_text
-                    display_items.append((display_text, res))
-            display_items.sort(key=lambda x: datetime.datetime.fromisoformat(x[1].get("timestamp", "1970-01-01T00:00:00")))
-            for display_text, res in display_items:
-                self.result_list.addItem(display_text)
-                self.result_mapping[display_text] = res
+    def update_result_list(self):
+        self.result_list.clear()
+        self.result_mapping = {}
+        filtered = []
+        topic_val = self.topic_filter.currentText()
+        name_val = self.name_filter.currentText()
+        for res in self.all_results:
+            if (topic_val == "Все темы" or res.get("test_topic", "") == topic_val) and \
+               (name_val == "Все студенты" or res.get("student", "") == name_val):
+                filtered.append(res)
+        from collections import defaultdict
+        groups = defaultdict(list)
+        for res in filtered:
+            key = (res.get("student", ""), res.get("test_topic", ""))
+            groups[key].append(res)
+        display_items = []
+        for key, results in groups.items():
+            results.sort(key=lambda r: datetime.datetime.fromisoformat(r.get("timestamp", "1970-01-01T00:00:00")))
+            for i, res in enumerate(results, start=1):
+                base_text = f'{res.get("student", "")} - {res.get("test_topic", "")}'
+                display_text = f'{base_text} (Попытка {i})' if i > 1 else base_text
+                display_items.append((display_text, res))
+        display_items.sort(key=lambda x: datetime.datetime.fromisoformat(x[1].get("timestamp", "1970-01-01T00:00:00")))
+        for display_text, res in display_items:
+            self.result_list.addItem(display_text)
+            self.result_mapping[display_text] = res
 
-        self.topic_filter.currentTextChanged.connect(update_result_list)
-        self.name_filter.currentTextChanged.connect(update_result_list)
-        update_result_list()
-
-        def format_result(result):
-            try:
-                dt = datetime.datetime.fromisoformat(result.get("timestamp", ""))
-                time_str = dt.strftime("%Y.%m.%d %H:%M:%S")
-            except Exception:
-                time_str = result.get("timestamp", "")
-            html = []
-            html.append(f'<div><strong>Тестируемый:</strong> {result.get("student", "")}</div>')
-            html.append(f'<div><strong>Время начала теста:</strong> {time_str}</div>')
-            html.append(f'<div><strong>Тест:</strong> {result.get("test_topic", "")}</div><br>')
-            html.append('<div><strong>Результаты:</strong></div>')
-            for i, item in enumerate(result.get("results", []), 1):
-                bg_color = "#ffcccc" if item.get("score", 0) < 1 else "transparent"
-                html.append(f'<div style="background-color:{bg_color}; padding:5px; margin:5px 0;">')
-                html.append(f'<div><strong>Вопрос {i}:</strong> {item.get("question", "")}</div>')
-                html.append(f'<div><strong>Правильный ответ:</strong> {item.get("correct_answer", "")}</div>')
-                ua = item.get("user_answer", "")
-                if isinstance(ua, list):
-                    ua = ", ".join(ua)
-                html.append(f'<div><strong>Ответ тестируемого:</strong> {ua}</div>')
-                html.append(f'<div><strong>Баллы:</strong> {item.get("score", 0)}</div>')
-                html.append('</div>')
-            html.append(f'<div><strong>Итоговый балл:</strong> {result.get("total_score", 0)}</div>')
-            html.append(f'<div><strong>Всего вопросов:</strong> {result.get("total_questions", 0)}</div>')
-            html.append(f'<div><strong>Процент прохождения:</strong> {result.get("percent", 0)}%</div>')
-            return "<br>".join(html)
-
-        def open_result():
-            selected_item = self.result_list.currentItem()
-            if selected_item:
-                key = selected_item.text()
-                res = self.result_mapping.get(key)
-                if res:
-                    formatted = format_result(res)
-                    self.result_view.setHtml(formatted)
-        open_btn.clicked.connect(open_result)
-        close_btn.clicked.connect(dialog.accept)
-
+    def update_summary_table(self):
+        from collections import defaultdict
         topic_groups = defaultdict(list)
-        for res in all_results:
+        for res in self.all_results:
             topic = res.get("test_topic", "Без темы")
             topic_groups[topic].append(res)
-        summary_table.setRowCount(0)
+        self.summary_table.setRowCount(0)
         for topic, results in topic_groups.items():
             count = len(results)
             avg_percent = sum(r.get("percent", 0) for r in results) / count if count else 0
-            row = summary_table.rowCount()
-            summary_table.insertRow(row)
-            summary_table.setItem(row, 0, QTableWidgetItem(topic))
-            summary_table.setItem(row, 1, QTableWidgetItem(str(count)))
-            summary_table.setItem(row, 2, QTableWidgetItem(f"{avg_percent:.1f}"))
-        dialog.exec_()
+            row = self.summary_table.rowCount()
+            self.summary_table.insertRow(row)
+            self.summary_table.setItem(row, 0, QTableWidgetItem(topic))
+            self.summary_table.setItem(row, 1, QTableWidgetItem(str(count)))
+            self.summary_table.setItem(row, 2, QTableWidgetItem(f"{avg_percent:.1f}"))
+    
+    def open_result(self):
+        selected_item = self.result_list.currentItem()
+        if selected_item:
+            key = selected_item.text()
+            res = self.result_mapping.get(key)
+            if res:
+                formatted = self.format_result(res)
+                self.result_view.setHtml(formatted)
+    
+    def format_result(self, result):
+        try:
+            dt = datetime.datetime.fromisoformat(result.get("timestamp", ""))
+            time_str = dt.strftime("%Y.%m.%d %H:%M:%S")
+        except Exception:
+            time_str = result.get("timestamp", "")
+        html = []
+        html.append(f'<div><strong>Тестируемый:</strong> {result.get("student", "")}</div>')
+        html.append(f'<div><strong>Время начала теста:</strong> {time_str}</div>')
+        html.append(f'<div><strong>Тест:</strong> {result.get("test_topic", "")}</div><br>')
+        html.append('<div><strong>Результаты:</strong></div>')
+        for i, item in enumerate(result.get("results", []), 1):
+            bg_color = "#ffcccc" if item.get("score", 0) < 1 else "transparent"
+            html.append(f'<div style="background-color:{bg_color}; padding:5px; margin:5px 0;">')
+            html.append(f'<div style="background-color:{bg_color};"><strong>Вопрос {i}:</strong> {item.get("question", "")}</div>')
+            html.append(f'<div style="background-color:{bg_color};"><strong>Правильный ответ:</strong> {item.get("correct_answer", "")}</div>')
+            ua = item.get("user_answer", "")
+            if isinstance(ua, list):
+                ua = ", ".join(ua)
+            html.append(f'<div style="background-color:{bg_color};"><strong>Ответ тестируемого:</strong> {ua}</div>')
+            html.append(f'<div style="background-color:{bg_color};"><strong>Баллы:</strong> {item.get("score", 0)}</div>')
+        html.append(f'<div><strong>Итоговый балл:</strong> {result.get("total_score", 0)}</div>')
+        html.append(f'<div><strong>Всего вопросов:</strong> {result.get("total_questions", 0)}</div>')
+        html.append(f'<div><strong>Процент прохождения:</strong> {result.get("percent", 0)}%</div>')
+        return "<br>".join(html)
 
 # ===================== Главное окно =====================
 class MainWindow(QMainWindow):
