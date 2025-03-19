@@ -393,7 +393,6 @@ class ChangePasswordDialog(QDialog):
             return
         data_manager.data["password"] = hash_password(new)
         data_manager.save_data(data_manager.data)
-        QMessageBox.information(self, "Успех", "Пароль успешно изменён!")
         msg_box = QMessageBox()
         msg_box.setStyleSheet(q_message_box)
         msg_box.setWindowTitle("Успех")
@@ -1014,7 +1013,13 @@ class AddQuestionDialog(QDialog):
         if qtype == "single":
             correct_count = sum(1 for ans in answers if ans["correct"])
             if correct_count != 1:
-                QMessageBox.warning(self, "Ошибка", "Для вопроса с одним правильным ответом должен быть ровно один правильный вариант!")
+                msg_box = QMessageBox()
+                msg_box.setStyleSheet(q_message_box)
+                msg_box.setWindowTitle("Ошибка")
+                msg_box.setText("<p style='background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,stop: 0 #A4D4F9, stop: 1 #005392);; color: black; font-family: \"Segoe UI\", Arial, sans-serif; font-size: 20pt;'>Для вопроса с одним правильным ответом должен быть ровно один правильный вариант! </p> ")
+                msg_box.setStandardButtons(QMessageBox.Ok)
+                msg_box.button(QMessageBox.Ok).setStyleSheet(q_message_box)
+                msg_box.exec_()
                 return
         self.question_result = {
             "question": question_text,
@@ -1302,7 +1307,6 @@ class EditWindow(QMainWindow):
             msg_box.button(QMessageBox.Ok).setStyleSheet(q_message_box)
             msg_box.exec_()
             return
-        # confirm = QMessageBox.question(self, "Подтверждение", "Удалить выбранный вопрос?")
         msg_box = QMessageBox()
         msg_box.setStyleSheet(q_message_box)
         msg_box.setWindowTitle("Подтверждение")
