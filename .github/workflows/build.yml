@@ -16,13 +16,13 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.12'  # Укажите нужную версию Python
+        python-version: '3.12'
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller  # Установите pyinstaller
-        pip install -r requirements.txt  # Установите зависимости вашего проекта
+        pip install pyinstaller  
+        pip install -r requirements.txt  
 
     - name: Build executable
       run: |
@@ -32,7 +32,7 @@ jobs:
       id: create_release
       uses: softprops/action-gh-release@v1
       with:
-        tag: v1.0.0  # Укажите версию релиза
-        files: dist/main.exe  # Замените на имя вашего исполняемого файла
+        tag: v1.0.0  
+        files: dist/main.exe 
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
