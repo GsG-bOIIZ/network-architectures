@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Демонстрация прохождения пакета по TCP/IP</title>
   <style>
     /* =============== Общие стили страницы =============== */
@@ -44,11 +45,13 @@
     /* =============== Popup с основным контентом =============== */
     #mainContent {
       position: fixed;
-      top: 50%;
+      top: 2%;               /* Расположение от верха экрана */
       left: 50%;
-      transform: translate(-50%, -50%);
-      width: 1100px;
-      max-width: 100%;
+      transform: translateX(-50%);
+      width: 90vw;           /* Ширина занимает 90% от ширины окна */
+      max-width: 1100px;     /* Но не больше 1100px */
+      max-height: 97vh;      /* Ограничение по высоте — максимум 90% от высоты окна */
+      overflow-y: auto;      /* Если содержимого больше, появляется скролл */
       background-color: #fff;
       border: 1px solid #ccc;
       border-radius: 4px;
@@ -209,7 +212,14 @@
   <div class="top-container">
     <!-- Левая часть: Canvas -->
     <div class="diagram-section">
-      <canvas id="networkCanvas" width="600" height="430"></canvas>
+      <canvas id="networkCanvas" width="600" height="350"></canvas>
+      <!-- Перемещённые кнопки управления сразу под canvas -->
+      <div class="controls">
+        <button id="prevBtn">Назад</button>
+        <button id="playBtn">Play</button>
+        <button id="nextBtn">Вперёд</button>
+        <button id="resetBtn">Сброс</button>
+      </div>
     </div>
     <!-- Правая часть: Сетка OSI vs TCP/IP -->
     <div class="osi-tcp-grid">
@@ -264,14 +274,6 @@
 
   <!-- Описание текущего шага -->
   <div id="description">Описание текущего шага</div>
-
-  <!-- Кнопки управления -->
-  <div class="controls">
-    <button id="prevBtn">Назад</button>
-    <button id="playBtn">Play</button>
-    <button id="nextBtn">Вперёд</button>
-    <button id="resetBtn">Сброс</button>
-  </div>
 </div>
 
 <script>
@@ -329,38 +331,41 @@
   let toCoord = { x: 0, y: 0 };
   let onAnimationEnd = null;
 
-  function drawNetwork() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Задаём смещение (отрицательное значение поднимает содержимое вверх)
+const offsetY = -50;
 
-    // Отправитель
-    ctx.drawImage(senderImg, positions.sender.x - 20, positions.sender.y - 20, 40, 40);
-    ctx.fillStyle = '#000';
-    ctx.font = '14px Arial';
-    ctx.fillText("Отправитель", positions.sender.x - 30, positions.sender.y + 35);
+function drawNetwork() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Маршрутизатор
-    ctx.drawImage(routerImg, positions.router.x - 20, positions.router.y - 20, 40, 40);
-    ctx.fillText("Маршрутизатор", positions.router.x - 40, positions.router.y + 35);
+  // Отправитель
+  ctx.drawImage(senderImg, positions.sender.x - 20, positions.sender.y - 20 + offsetY, 40, 40);
+  ctx.fillStyle = '#000';
+  ctx.font = '14px Arial';
+  ctx.fillText("Отправитель", positions.sender.x - 30, positions.sender.y + 35 + offsetY);
 
-    // Получатель
-    ctx.drawImage(receiverImg, positions.receiver.x - 20, positions.receiver.y - 20, 40, 40);
-    ctx.fillText("Получатель", positions.receiver.x - 30, positions.receiver.y + 35);
+  // Маршрутизатор
+  ctx.drawImage(routerImg, positions.router.x - 20, positions.router.y - 20 + offsetY, 40, 40);
+  ctx.fillText("Маршрутизатор", positions.router.x - 40, positions.router.y + 35 + offsetY);
 
-    // Соединительные линии
-    ctx.strokeStyle = '#888';
-    ctx.beginPath();
-    ctx.moveTo(positions.sender.x + 20, positions.sender.y);
-    ctx.lineTo(positions.router.x - 10, positions.router.y + 10);
-    ctx.stroke();
+  // Получатель
+  ctx.drawImage(receiverImg, positions.receiver.x - 20, positions.receiver.y - 20 + offsetY, 40, 40);
+  ctx.fillText("Получатель", positions.receiver.x - 30, positions.receiver.y + 35 + offsetY);
 
-    ctx.beginPath();
-    ctx.moveTo(positions.router.x + 10, positions.router.y + 10);
-    ctx.lineTo(positions.receiver.x - 20, positions.receiver.y);
-    ctx.stroke();
+  // Соединительные линии
+  ctx.strokeStyle = '#888';
+  ctx.beginPath();
+  ctx.moveTo(positions.sender.x + 20, positions.sender.y + offsetY);
+  ctx.lineTo(positions.router.x - 10, positions.router.y + 10 + offsetY);
+  ctx.stroke();
 
-    // Пакет
-    ctx.drawImage(packageImg, packetX - 10, packetY - 10, 20, 20);
-  }
+  ctx.beginPath();
+  ctx.moveTo(positions.router.x + 10, positions.router.y + 10 + offsetY);
+  ctx.lineTo(positions.receiver.x - 20, positions.receiver.y + offsetY);
+  ctx.stroke();
+
+  // Пакет
+  ctx.drawImage(packageImg, packetX - 10, packetY - 10 + offsetY, 20, 20);
+}
 
   function animatePacket(from, to, duration, callback) {
     isAnimating = true;
