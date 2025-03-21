@@ -448,6 +448,7 @@ class TestSelectionDialog(QDialog):
 
     def load_tests(self):
         self.test_list.clear()
+        self.test_list.addItem("Итоговый тест")
         tests = data_manager.data.get("tests", [])
         for test in tests:
             self.test_list.addItem(test.get("topic", "Без темы"))
@@ -455,7 +456,21 @@ class TestSelectionDialog(QDialog):
     def select_test(self):
         current_row = self.test_list.currentRow()
         if current_row >= 0:
-            self.selected_test = data_manager.data["tests"][current_row]
+            if current_row == 0:
+                # Формируем итоговый тест: для каждого теста берем 3 случайных вопроса (или все, если вопросов меньше 3)
+                final_questions = []
+                for test in data_manager.data.get("tests", []):
+                    questions = test.get("questions", [])
+                    if len(questions) <= 3:
+                        final_questions.extend(questions)
+                    else:
+                        final_questions.extend(random.sample(questions, 3))
+                # Перемешиваем итоговые вопросы
+                random.shuffle(final_questions)
+                self.selected_test = {"topic": "Итоговый тест", "questions": final_questions}
+            else:
+                # Индексы смещены: первый пункт – Итоговый тест, остальные соответствуют данным
+                self.selected_test = data_manager.data["tests"][current_row - 1]
             self.accept()
         else:
             msg_box = QMessageBox()
@@ -470,11 +485,12 @@ class TestSelectionDialog(QDialog):
 class TestWindow(QDialog):
     def __init__(self, test_data, student_name, parent=None):
         super(TestWindow, self).__init__(parent)
+        self.test_data = test_data  # Добавляем сохранение данных теста
         self.setWindowTitle(f"Тест: {test_data.get('topic','')}")
         self.setMinimumSize(1280, 720)
-        self.test_data = test_data
-        self.student_name = student_name
+        # Получаем список вопросов и перемешиваем его
         self.questions = test_data.get("questions", [])
+        random.shuffle(self.questions)
         self.total_questions = len(self.questions)
         self.question_order = []
         for q in self.questions:
@@ -483,6 +499,7 @@ class TestWindow(QDialog):
             self.question_order.append(order)
         self.user_answers = [None] * self.total_questions
         self.current_index = 0
+        self.student_name = student_name
 
         self.layout = QVBoxLayout()
         self.nav_layout = QHBoxLayout()
@@ -1029,87 +1046,46 @@ class AddQuestionDialog(QDialog):
         }
         self.accept()
 
-# ===================== Окно редактирования тестов и управления результатами =====================
-class EditWindow(QMainWindow):
+# ===================== Виджет редактирования тестов =====================
+class TestEditingTab(QWidget):
     def __init__(self, parent=None):
-        super(EditWindow, self).__init__(parent)
-        self.setWindowTitle("Редактирование тестов")
-        self.setMinimumSize(1280, 720)
-        
-        # Создаем QTabWidget для двух вкладок
-        self.tabs = QTabWidget()
-        self.setCentralWidget(self.tabs)
-
-        self.tabs.setStyleSheet(f"""
-            QTabWidget::pane {{
-                {base_style}
-            }}
-            QTabBar::tab {{
-                background: #fff;
-                color: #000;
-                padding: 10px;
-                border: 2px solid #000;
-                border-radius: 5px;
-            }}
-            QTabBar::tab:selected {{
-                background: #aeaeae;
-                color: #000;
-                border-radius: 5px;
-            }}
-            QTabBar::tab:hover {{
-                background: #d0d0d0;
-            }}
-        """)
-        
-        # Вкладка 1: Редактирование тестов
-        self.edit_tests_tab = QWidget()
-        self.tabs.addTab(self.edit_tests_tab, "Редактирование тестов")
-        self.init_edit_tests_tab()
-        
-        # Вкладка 2: Просмотр результатов
-        self.view_results_tab = QWidget()
-        self.tabs.addTab(self.view_results_tab, "Просмотр результатов")
-        self.init_view_results_tab()
-
-    def init_edit_tests_tab(self):
-        layout = QVBoxLayout(self.edit_tests_tab)
+        super(TestEditingTab, self).__init__(parent)
+        layout = QVBoxLayout(self)
         splitter_main = QSplitter(Qt.Vertical)
         layout.addWidget(splitter_main)
-        
-        # Верхний сплиттер с двумя списками: тесты и вопросы
+
+        # Верхний сплиттер: список тестов и вопросов
         top_splitter = QSplitter(Qt.Horizontal)
         self.tests_list = QListWidget()
         self.tests_list.setStyleSheet(f"""
             QListWidget {{
                 {base_style}
                 padding: 5px;
-                background-color: #fff;
-                border: 2px solid #000;
+                background-color: #ffffff;
+                border: 1px solid #d9d9d9;
                 border-radius: 5px;
             }}
         """)
         self.tests_list.itemClicked.connect(self.load_questions)
         top_splitter.addWidget(self.tests_list)
-        
         self.questions_list = QListWidget()
         self.questions_list.setStyleSheet(f"""
             QListWidget {{
                 {base_style}
                 padding: 5px;
-                background-color: #fff;
-                border: 2px solid #000;
+                background-color: #ffffff;
+                border: 1px solid #d9d9d9;
                 border-radius: 5px;
             }}
         """)
         top_splitter.addWidget(self.questions_list)
         splitter_main.addWidget(top_splitter)
-        
-        # Панель кнопок под списками
+
+        # Нижняя панель с кнопками
         buttons_widget = QWidget()
         buttons_layout = QHBoxLayout(buttons_widget)
         buttons_layout.addStretch()
-        
-        # Блок кнопок для тестов
+
         vbox_left = QVBoxLayout()
         self.add_test_btn = QPushButton("Добавить тест")
         self.add_test_btn.setStyleSheet(button_style)
@@ -1119,8 +1095,7 @@ class EditWindow(QMainWindow):
         self.delete_test_btn.clicked.connect(self.delete_test)
         vbox_left.addWidget(self.add_test_btn)
         vbox_left.addWidget(self.delete_test_btn)
-        
-        # Блок кнопок для вопросов
+
         vbox_center = QVBoxLayout()
         self.add_question_btn = QPushButton("Добавить вопрос")
         self.add_question_btn.setStyleSheet(button_style)
@@ -1134,97 +1109,31 @@ class EditWindow(QMainWindow):
         vbox_center.addWidget(self.add_question_btn)
         vbox_center.addWidget(self.delete_question_btn)
         vbox_center.addWidget(self.edit_question_btn)
-        
-        # Блок настроек
+
         vbox_right = QVBoxLayout()
         self.change_password_btn = QPushButton("Сменить пароль")
         self.change_password_btn.setStyleSheet(button_style)
         self.change_password_btn.clicked.connect(self.change_password)
+        vbox_right.addWidget(self.change_password_btn)
+
+        vbox_far_right = QVBoxLayout()
         self.set_results_path_btn = QPushButton("Изменить путь сохранения результатов")
         self.set_results_path_btn.setStyleSheet(button_style)
         self.set_results_path_btn.clicked.connect(self.set_results_path)
-        vbox_right.addWidget(self.change_password_btn)
-        vbox_right.addWidget(self.set_results_path_btn)
-        
+        vbox_far_right.addWidget(self.set_results_path_btn)
+
         buttons_layout.addLayout(vbox_left)
         buttons_layout.addSpacing(20)
         buttons_layout.addLayout(vbox_center)
         buttons_layout.addSpacing(20)
         buttons_layout.addLayout(vbox_right)
+        buttons_layout.addSpacing(20)
+        buttons_layout.addLayout(vbox_far_right)
         buttons_layout.addStretch()
-        
         splitter_main.addWidget(buttons_widget)
+
         self.load_tests()
 
-    def init_view_results_tab(self):
-        layout = QVBoxLayout(self.view_results_tab)
-        
-        # Верхняя панель с фильтрами
-        filter_layout = QHBoxLayout()
-        self.topic_filter = QComboBox()
-        self.topic_filter.setEditable(True)
-        self.topic_filter.setStyleSheet(combobox_style)
-        self.topic_filter.addItem("Все темы")
-        self.name_filter = QComboBox()
-        self.name_filter.setEditable(True)
-        self.name_filter.setStyleSheet(combobox_style)
-        self.name_filter.addItem("Все студенты")
-        label_theme = QLabel("По теме:")
-        label_theme.setStyleSheet(filter_style)
-        label_name = QLabel("По имени:")
-        label_name.setStyleSheet(filter_style)
-        filter_layout.addWidget(label_theme)
-        filter_layout.addWidget(self.topic_filter)
-        filter_layout.addWidget(label_name)
-        filter_layout.addWidget(self.name_filter)
-        layout.addLayout(filter_layout)
-        
-        # Основной сплиттер: список результатов и детальный просмотр
-        splitter = QSplitter(Qt.Vertical)
-        self.result_list = QListWidget()
-        splitter.addWidget(self.result_list)
-        self.result_view = QTextEdit()
-        self.result_view.setReadOnly(True)
-        self.result_view.setStyleSheet(
-            f"""{base_style}
-                padding: 5px;
-                border: 2px solid #000;
-                border-radius: 5px; 
-            """
-        )  
-        splitter.addWidget(self.result_view)
-        layout.addWidget(splitter)
-        
-        # Кнопки управления
-        btn_layout = QHBoxLayout()
-        open_btn = QPushButton("Открыть")
-        open_btn.setStyleSheet(button_style)
-        close_btn = QPushButton("Закрыть")
-        close_btn.setStyleSheet(button_style)
-        btn_layout.addWidget(open_btn)
-        btn_layout.addWidget(close_btn)
-        layout.addLayout(btn_layout)
-        
-        # Табуляция результатов по темам (сводная информация)
-        summary_label = QLabel("Сводка по темам")
-        summary_label.setStyleSheet(header_style)
-        layout.addWidget(summary_label)
-        self.summary_table = QTableWidget()
-        self.summary_table.setStyleSheet(tablewidget_style)
-        self.summary_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.summary_table.setColumnCount(3)
-        self.summary_table.setHorizontalHeaderLabels(["Тема теста", "Кол-во студентов", "Средний балл (%)"])
-        self.summary_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        layout.addWidget(self.summary_table)
-        
-        # Загрузка и фильтрация результатов
-        self.load_results()
-        self.topic_filter.currentTextChanged.connect(self.update_result_list)
-        self.name_filter.currentTextChanged.connect(self.update_result_list)
-        open_btn.clicked.connect(self.open_result)
-        close_btn.clicked.connect(lambda: self.result_view.clear())
-
-    # Методы для работы с вкладкой "Редактирование тестов"
     def load_tests(self):
         self.tests_list.clear()
         tests = data_manager.data.get("tests", [])
@@ -1251,42 +1160,16 @@ class EditWindow(QMainWindow):
     def delete_test(self):
         current_row = self.tests_list.currentRow()
         if current_row >= 0:
-            msg_box = QMessageBox()
-            msg_box.setStyleSheet(q_message_box)
-            msg_box.setWindowTitle("Подтверждение")
-            msg_box.setText("<p style='background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,stop: 0 #A4D4F9, stop: 1 #005392);; color: black; font-family: \"Segoe UI\", Arial, sans-serif; font-size: 20pt;'> Удалить выбранный тест? </p> ")
-            yes_button = msg_box.addButton("Да", QMessageBox.YesRole)
-            no_button = msg_box.addButton("Нет", QMessageBox.NoRole)
-
-            # Применяем стили к кнопкам
-            yes_button.setStyleSheet(q_message_box)
-            no_button.setStyleSheet(q_message_box)
-            msg_box.exec_()
-            
-            if msg_box.clickedButton() == yes_button:
+            confirm = QMessageBox.question(self, "Подтверждение", "Удалить выбранный тест?")
+            if confirm == QMessageBox.Yes:
                 del data_manager.data["tests"][current_row]
                 data_manager.save_data(data_manager.data)
                 self.load_tests()
-        else:
-            msg_box = QMessageBox()
-            msg_box.setStyleSheet(q_message_box)
-            msg_box.setWindowTitle("Ошибка")
-            msg_box.setText("<p style='background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,stop: 0 #A4D4F9, stop: 1 #005392); color: black; font-family: \"Segoe UI\", Arial, sans-serif; font-size: 20pt;'> Выберите тест для удаления! </p> ")
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.button(QMessageBox.Ok).setStyleSheet(q_message_box)
-            msg_box.exec_()
-            return
 
     def add_question(self):
         current_test_index = self.tests_list.currentRow()
         if current_test_index < 0:
-            msg_box = QMessageBox()
-            msg_box.setStyleSheet(q_message_box)
-            msg_box.setWindowTitle("Ошибка")
-            msg_box.setText("<p style='background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,stop: 0 #A4D4F9, stop: 1 #005392);; color: black; font-family: \"Segoe UI\", Arial, sans-serif; font-size: 20pt;'> Выберите тест! </p> ")
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.button(QMessageBox.Ok).setStyleSheet(q_message_box)
-            msg_box.exec_()
+            QMessageBox.warning(self, "Ошибка", "Выберите тест!")
             return
         dialog = AddQuestionDialog(None, self)
         if dialog.exec_() == QDialog.Accepted:
@@ -1299,27 +1182,10 @@ class EditWindow(QMainWindow):
         current_test_index = self.tests_list.currentRow()
         current_question_index = self.questions_list.currentRow()
         if current_test_index < 0 or current_question_index < 0:
-            msg_box = QMessageBox()
-            msg_box.setStyleSheet(q_message_box)
-            msg_box.setWindowTitle("Ошибка")
-            msg_box.setText("<p style='background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,stop: 0 #A4D4F9, stop: 1 #005392);; color: black; font-family: \"Segoe UI\", Arial, sans-serif; font-size: 20pt;'> Выберите вопрос для удаления! </p> ")
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.button(QMessageBox.Ok).setStyleSheet(q_message_box)
-            msg_box.exec_()
+            QMessageBox.warning(self, "Ошибка", "Выберите вопрос для удаления!")
             return
-        msg_box = QMessageBox()
-        msg_box.setStyleSheet(q_message_box)
-        msg_box.setWindowTitle("Подтверждение")
-        msg_box.setText("<p style='background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,stop: 0 #A4D4F9, stop: 1 #005392);; color: black; font-family: \"Segoe UI\", Arial, sans-serif; font-size: 20pt;'> Удалить выбранный вопрос? </p> ")
-        
-        yes_button = msg_box.addButton("Да", QMessageBox.YesRole)
-        no_button = msg_box.addButton("Нет", QMessageBox.NoRole)
-
-        yes_button.setStyleSheet(q_message_box)
-        no_button.setStyleSheet(q_message_box)
-        
-        msg_box.exec_()
-        if msg_box.clickedButton() == yes_button:
+        confirm = QMessageBox.question(self, "Подтверждение", "Удалить выбранный вопрос?")
+        if confirm == QMessageBox.Yes:
             del data_manager.data["tests"][current_test_index]["questions"][current_question_index]
             data_manager.save_data(data_manager.data)
             self.load_questions()
@@ -1328,13 +1194,7 @@ class EditWindow(QMainWindow):
         current_test_index = self.tests_list.currentRow()
         current_question_index = self.questions_list.currentRow()
         if current_test_index < 0 or current_question_index < 0:
-            msg_box = QMessageBox()
-            msg_box.setStyleSheet(q_message_box)
-            msg_box.setWindowTitle("Ошибка")
-            msg_box.setText("<p style='background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,stop: 0 #A4D4F9, stop: 1 #005392);; color: black; font-family: \"Segoe UI\", Arial, sans-serif; font-size: 20pt;'> Выберите вопрос для редактирования! </p> ")
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.button(QMessageBox.Ok).setStyleSheet(q_message_box)
-            msg_box.exec_()
+            QMessageBox.warning(self, "Ошибка", "Выберите вопрос для редактирования!")
             return
         question_data = data_manager.data["tests"][current_test_index]["questions"][current_question_index]
         dialog = AddQuestionDialog(question_data, self)
@@ -1352,25 +1212,88 @@ class EditWindow(QMainWindow):
         if directory:
             data_manager.data["results_path"] = directory
             data_manager.save_data(data_manager.data)
-            msg_box = QMessageBox()
-            msg_box.setStyleSheet(q_message_box)
-            msg_box.setWindowTitle("Успех")
-            msg_box.setText("<p style='background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,stop: 0 #A4D4F9, stop: 1 #005392);; color: black; font-family: \"Segoe UI\", Arial, sans-serif; font-size: 20pt;'> Путь сохранения результатов изменён. </p> ")
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.button(QMessageBox.Ok).setStyleSheet(q_message_box)
-            msg_box.exec_()
+            QMessageBox.information(self, "Успех", "Путь сохранения результатов изменён.")
 
-    # Методы для работы с вкладкой "Просмотр результатов"
+# ===================== Виджет просмотра результатов =====================
+class ResultsViewingTab(QWidget):
+    def __init__(self, parent=None):
+        super(ResultsViewingTab, self).__init__(parent)
+        main_layout = QVBoxLayout(self)
+        self.tab_widget = QTabWidget()
+        main_layout.addWidget(self.tab_widget)
+        
+        # Вкладка с индивидуальными результатами
+        individual_tab = QWidget()
+        individual_layout = QVBoxLayout(individual_tab)
+        
+        filter_layout = QHBoxLayout()
+        self.topic_filter = QComboBox()
+        self.topic_filter.setEditable(True)
+        self.topic_filter.setStyleSheet(combobox_style)
+        self.topic_filter.addItem("Все темы")
+        self.name_filter = QComboBox()
+        self.name_filter.setEditable(True)
+        self.name_filter.setStyleSheet(combobox_style)
+        self.name_filter.addItem("Все студенты")
+        filter_layout.addWidget(QLabel("По теме:"))
+        filter_layout.addWidget(self.topic_filter)
+        filter_layout.addWidget(QLabel("По имени:"))
+        filter_layout.addWidget(self.name_filter)
+        individual_layout.addLayout(filter_layout)
+        
+        splitter = QSplitter(Qt.Vertical)
+        self.result_list = QListWidget()
+        splitter.addWidget(self.result_list)
+        self.result_view = QTextEdit()
+        self.result_view.setReadOnly(True)
+        self.result_view.setStyleSheet(f"{base_style} font-size: 10pt;")
+        splitter.addWidget(self.result_view)
+        individual_layout.addWidget(splitter)
+        
+        btn_layout = QHBoxLayout()
+        open_btn = QPushButton("Открыть")
+        open_btn.setStyleSheet(button_style)
+        clear_btn = QPushButton("Очистить")
+        clear_btn.setStyleSheet(button_style)
+        btn_layout.addWidget(open_btn)
+        btn_layout.addWidget(clear_btn)
+        individual_layout.addLayout(btn_layout)
+        
+        self.tab_widget.addTab(individual_tab, "Индивидуальные результаты")
+        
+        # Вкладка со сводной информацией по темам
+        summary_tab = QWidget()
+        summary_layout = QVBoxLayout(summary_tab)
+        self.summary_table = QTableWidget()
+        self.summary_table.setStyleSheet(tablewidget_style)
+        self.summary_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.summary_table.setColumnCount(3)
+        self.summary_table.setHorizontalHeaderLabels(["Тема теста", "Кол-во студентов", "Средний балл (%)"])
+        self.summary_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        summary_layout.addWidget(self.summary_table)
+        self.tab_widget.addTab(summary_tab, "Сводка по темам")
+        
+        # Новая вкладка "Итоги студентов"
+        students_tab = QWidget()
+        students_layout = QVBoxLayout(students_tab)
+        self.students_table = QTableWidget()
+        self.students_table.setStyleSheet(tablewidget_style)
+        self.students_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.students_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        students_layout.addWidget(self.students_table)
+        self.tab_widget.addTab(students_tab, "Итоги студентов")
+        
+        self.load_results()
+        self.result_mapping = {}
+        self.topic_filter.currentTextChanged.connect(self.update_result_list)
+        self.name_filter.currentTextChanged.connect(self.update_result_list)
+        open_btn.clicked.connect(self.open_result)
+        clear_btn.clicked.connect(lambda: self.result_view.clear())
+    
     def load_results(self):
         results_path = data_manager.data.get("results_path", os.path.abspath("results"))
         if not os.path.exists(results_path):
-            msg_box = QMessageBox()
-            msg_box.setStyleSheet(q_message_box)
-            msg_box.setWindowTitle("Ошибка")
-            msg_box.setText("<p style='background-color: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,stop: 0 #A4D4F9, stop: 1 #005392);; color: black; font-family: \"Segoe UI\", Arial, sans-serif; font-size: 20pt;'> Директория с результатами не существует. </p> ")
-            msg_box.setStandardButtons(QMessageBox.Ok)
-            msg_box.button(QMessageBox.Ok).setStyleSheet(q_message_box)
-            msg_box.exec_()
+            QMessageBox.warning(self, "Ошибка", "Директория с результатами не существует.")
             return
         files = [f for f in os.listdir(results_path) if f.startswith("TEST-") and f.endswith(".enc")]
         self.all_results = []
@@ -1378,20 +1301,18 @@ class EditWindow(QMainWindow):
         for f in files:
             filepath = os.path.join(results_path, f)
             res = rm.load_result(filepath)
-            if res:
+            if res and "student" in res and "test_topic" in res and "timestamp" in res:
                 res["_filename"] = f
                 self.all_results.append(res)
+        
         topics = set(res.get("test_topic", "") for res in self.all_results)
         names = set(res.get("student", "") for res in self.all_results)
-        self.topic_filter.clear()
-        self.topic_filter.addItem("Все темы")
         self.topic_filter.addItems(sorted(topics))
-        self.name_filter.clear()
-        self.name_filter.addItem("Все студенты")
         self.name_filter.addItems(sorted(names))
         self.update_result_list()
         self.update_summary_table()
-
+        self.update_students_summary_table()
+    
     def update_result_list(self):
         self.result_list.clear()
         self.result_mapping = {}
@@ -1402,32 +1323,38 @@ class EditWindow(QMainWindow):
             if (topic_val == "Все темы" or res.get("test_topic", "") == topic_val) and \
                (name_val == "Все студенты" or res.get("student", "") == name_val):
                 filtered.append(res)
-        from collections import defaultdict
         groups = defaultdict(list)
         for res in filtered:
             key = (res.get("student", ""), res.get("test_topic", ""))
             groups[key].append(res)
         display_items = []
         for key, results in groups.items():
-            results.sort(key=lambda r: datetime.datetime.fromisoformat(r.get("timestamp", "1970-01-01T00:00:00")))
+            try:
+                results.sort(key=lambda r: datetime.datetime.fromisoformat(r.get("timestamp", "")))
+            except:
+                results.sort(key=lambda r: r.get("timestamp", ""))
             for i, res in enumerate(results, start=1):
+                time_str = res.get("timestamp", "")
+                try:
+                    dt = datetime.datetime.fromisoformat(time_str)
+                    time_str = dt.strftime("%Y.%m.%d %H:%M")
+                except:
+                    pass
                 base_text = f'{res.get("student", "")} - {res.get("test_topic", "")}'
-                display_text = f'{base_text} (Попытка {i})' if i > 1 else base_text
+                display_text = f'{base_text} ({time_str})'
                 display_items.append((display_text, res))
-        display_items.sort(key=lambda x: datetime.datetime.fromisoformat(x[1].get("timestamp", "1970-01-01T00:00:00")))
+        display_items.sort(
+            key=lambda x: datetime.datetime.fromisoformat(x[1].get("timestamp", "1970-01-01T00:00:00")),
+            reverse=True
+        )
         for display_text, res in display_items:
             self.result_list.addItem(display_text)
             self.result_mapping[display_text] = res
-        self.result_list.setStyleSheet(
-            f"""{base_style}
-                padding: 5px;
-                border: 2px solid #000;
-                border-radius: 5px; 
-            """
-        )  
-
+        if self.result_list.count() > 0:
+            self.result_list.setCurrentRow(0)
+            self.open_result()
+    
     def update_summary_table(self):
-        from collections import defaultdict
         topic_groups = defaultdict(list)
         for res in self.all_results:
             topic = res.get("test_topic", "Без темы")
@@ -1441,17 +1368,35 @@ class EditWindow(QMainWindow):
             self.summary_table.setItem(row, 0, QTableWidgetItem(topic))
             self.summary_table.setItem(row, 1, QTableWidgetItem(str(count)))
             self.summary_table.setItem(row, 2, QTableWidgetItem(f"{avg_percent:.1f}"))
-            # Установка белого фона для таблицы
-            self.summary_table.setStyleSheet(base_style)    
-
-    def open_result(self):
-        selected_item = self.result_list.currentItem()
-        if selected_item:
-            key = selected_item.text()
-            res = self.result_mapping.get(key)
-            if res:
-                formatted = self.format_result(res)
-                self.result_view.setHtml(formatted)
+    
+    def update_students_summary_table(self):
+        # Формируем словарь: студент -> {тема: список процентов}
+        data = {}
+        topics = set()
+        for res in self.all_results:
+            student = res.get("student", "")
+            topic = res.get("test_topic", "Без темы")
+            topics.add(topic)
+            if student not in data:
+                data[student] = {}
+            if topic not in data[student]:
+                data[student][topic] = []
+            data[student][topic].append(res.get("percent", 0))
+        topics = sorted(topics)
+        students = sorted(data.keys())
+        self.students_table.setColumnCount(len(topics))
+        self.students_table.setRowCount(len(students))
+        self.students_table.setHorizontalHeaderLabels(topics)
+        self.students_table.setVerticalHeaderLabels(students)
+        for i, student in enumerate(students):
+            for j, topic in enumerate(topics):
+                scores = data[student].get(topic, [])
+                if scores:
+                    avg = sum(scores) / len(scores)
+                    text = f"{avg:.1f}%"
+                else:
+                    text = ""
+                self.students_table.setItem(i, j, QTableWidgetItem(text))
     
     def format_result(self, result):
         try:
@@ -1460,24 +1405,78 @@ class EditWindow(QMainWindow):
         except Exception:
             time_str = result.get("timestamp", "")
         html = []
-        html.append(f'<div style="font-size: 24px;"><strong>Тестируемый:</strong> {result.get("student", "")}</div>')
-        html.append(f'<div style="font-size: 24px;"><strong>Время начала теста:</strong> {time_str}</div>')
-        html.append(f'<div style="font-size: 24px;"><strong>Тест:</strong> {result.get("test_topic", "")}</div><br>')
-        html.append('<div style="font-size: 24px;"><strong>Результаты:</strong></div>')
+        html.append(f'<div><strong>Тестируемый:</strong> {result.get("student", "")}</div>')
+        html.append(f'<div><strong>Время начала теста:</strong> {time_str}</div>')
+        html.append(f'<div><strong>Тест:</strong> {result.get("test_topic", "")}</div><br>')
+        html.append('<div><strong>Результаты:</strong></div>')
         for i, item in enumerate(result.get("results", []), 1):
-            bg_color = "#fff" if item.get("score", 0) < 1 else "transparent"
-            html.append(f'<div style="background-color:{bg_color}; font-size: 24px; padding:5px; margin:5px 0;">')
-            html.append(f'<div style="background-color:{bg_color}; font-size: 24px;"><strong>Вопрос {i}:</strong> {item.get("question", "")}</div>')
-            html.append(f'<div style="background-color:{bg_color}; font-size: 24px;"><strong>Правильный ответ:</strong> {item.get("correct_answer", "")}</div>')
+            bg_color = "#ffcccc" if item.get("score", 0) < 1 else "transparent"
+            html.append(f'<div style="background-color:{bg_color};"><strong>Вопрос {i}:</strong> {item.get("question", "")}</div>')
+            html.append(f'<div style="background-color:{bg_color};"><strong>Правильный ответ:</strong> {item.get("correct_answer", "")}</div>')
             ua = item.get("user_answer", "")
             if isinstance(ua, list):
                 ua = ", ".join(ua)
-            html.append(f'<div style="background-color:{bg_color}; font-size: 24px;"><strong>Ответ тестируемого:</strong> {ua}</div>')
-            html.append(f'<div style="background-color:{bg_color}; font-size: 24px;"><strong>Баллы:</strong> {item.get("score", 0)}</div>')
-        html.append(f'<div style="font-size: 24px;"><strong>Итоговый балл:</strong> {result.get("total_score", 0)}</div>')
-        html.append(f'<div style="font-size: 24px;"><strong>Всего вопросов:</strong> {result.get("total_questions", 0)}</div>')
-        html.append(f'<div style="font-size: 24px;"><strong>Процент прохождения:</strong> {result.get("percent", 0)}%</div>')
-        return "<br>".join(html)
+            html.append(f'<div style="background-color:{bg_color};"><strong>Ответ тестируемого:</strong> {ua}</div>')
+            html.append(f'<div style="background-color:{bg_color};"><strong>Баллы:</strong> {item.get("score", 0)}</div><br>')
+        html.append(f'<div><strong>Итоговый балл:</strong> {result.get("total_score", 0)}</div>')
+        html.append(f'<div><strong>Всего вопросов:</strong> {result.get("total_questions", 0)}</div>')
+        html.append(f'<div><strong>Процент прохождения:</strong> {round(result.get("percent", 0), 2)}%</div>')
+        return "".join(html)
+    
+    def open_result(self):
+        selected_item = self.result_list.currentItem()
+        if selected_item:
+            key = selected_item.text()
+            res = self.result_mapping.get(key)
+            if res:
+                formatted = self.format_result(res)
+                self.result_view.setHtml(formatted)
+            else:
+                QMessageBox.warning(self, "Ошибка", "Результат не найден.")
+        else:
+            QMessageBox.warning(self, "Ошибка", "Выберите результат из списка.")
+
+
+# ===================== Главное окно режима редактирования (Администрирования) =====================
+class AdminWindow(QMainWindow):
+    def __init__(self, parent=None):
+        super(AdminWindow, self).__init__(parent)
+        self.setWindowTitle("Режим редактирования")
+        self.setMinimumSize(1280, 720)
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
+        
+        self.tab_widget = QTabWidget()
+        layout.addWidget(self.tab_widget)
+        
+        self.edit_tab = TestEditingTab(self)
+        self.results_tab = ResultsViewingTab(self)
+        
+        self.tab_widget.addTab(self.edit_tab, "Редактирование тестов")
+        self.tab_widget.addTab(self.results_tab, "Просмотр результатов")
+
+        self.tab_widget.setStyleSheet(f"""
+            QTabWidget::pane {{
+                {base_style}
+            }}
+            QTabBar::tab {{
+                background: #fff;
+                color: #000;
+                padding: 10px;
+                border: 2px solid #000;
+                border-radius: 5px;
+                margin: 0px 2px;
+            }}
+            QTabBar::tab:selected {{
+                background: #aeaeae;
+                color: #000;
+                border-radius: 5px;
+            }}
+            QTabBar::tab:hover {{
+                background: #d0d0d0;
+            }}
+        """)
 
 # ===================== Главное окно =====================
 class MainWindow(QMainWindow):
@@ -1541,7 +1540,7 @@ class MainWindow(QMainWindow):
     def start_edit(self):
         login_dialog = LoginDialog(self)
         if login_dialog.exec_() == QDialog.Accepted and login_dialog.accepted:
-            self.edit_window = EditWindow(self)
+            self.edit_window = AdminWindow(self)
             self.edit_window.show()
 
 # ===================== Точка входа в приложение =====================
