@@ -1,4 +1,4 @@
-name: Build Python Executable
+name: Build Python Executable and Deploy to GitHub Pages
 
 on:
   push:
@@ -42,7 +42,6 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -51,4 +50,5 @@ jobs:
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: lectures
+        publish_dir: ./lectures
+        publish_branch: gh-pages
