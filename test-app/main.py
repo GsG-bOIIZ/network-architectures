@@ -53,6 +53,7 @@ combobox_style = f"""
         subcontrol-position: top right;
         width: 25px;
         border-left: 2px solid #000;
+        background: #fff;
     }}
     QComboBox QAbstractItemView {{
         {base_style}
@@ -65,6 +66,7 @@ combobox_style = f"""
 tablewidget_style = f"""
     QTableWidget {{
         {base_style}
+        font-size: 12pt;
         background-color: #ffffff;
         gridline-color: #000;
         border: 2px solid #000;
@@ -136,6 +138,7 @@ q_message_box = f"""
     QMessageBox QLabel {{
         color: #000; /* Цвет текста */
         font-weight: bold;
+        background: #fff;
     }}
     QMessageBox QPushButton {{
         background-color: #fff;
@@ -1235,9 +1238,13 @@ class ResultsViewingTab(QWidget):
         self.name_filter.setEditable(True)
         self.name_filter.setStyleSheet(combobox_style)
         self.name_filter.addItem("Все студенты")
-        filter_layout.addWidget(QLabel("По теме:"))
+        label_theme = QLabel("По теме:")
+        label_theme.setStyleSheet(filter_style)
+        label_name = QLabel("По имени:")
+        label_name.setStyleSheet(filter_style)
+        filter_layout.addWidget(label_theme)
         filter_layout.addWidget(self.topic_filter)
-        filter_layout.addWidget(QLabel("По имени:"))
+        filter_layout.addWidget(label_name)
         filter_layout.addWidget(self.name_filter)
         individual_layout.addLayout(filter_layout)
         
@@ -1353,6 +1360,13 @@ class ResultsViewingTab(QWidget):
         if self.result_list.count() > 0:
             self.result_list.setCurrentRow(0)
             self.open_result()
+        self.result_list.setStyleSheet(
+            f"""{base_style}
+                padding: 5px;
+                border: 2px solid #000;
+                border-radius: 5px;
+            """
+        )  
     
     def update_summary_table(self):
         topic_groups = defaultdict(list)
@@ -1368,7 +1382,9 @@ class ResultsViewingTab(QWidget):
             self.summary_table.setItem(row, 0, QTableWidgetItem(topic))
             self.summary_table.setItem(row, 1, QTableWidgetItem(str(count)))
             self.summary_table.setItem(row, 2, QTableWidgetItem(f"{avg_percent:.1f}"))
-    
+        for row in range(self.summary_table.rowCount()):
+            self.summary_table.setRowHeight(row, 50)    
+
     def update_students_summary_table(self):
         # Формируем словарь: студент -> {тема: список процентов}
         data = {}
@@ -1389,6 +1405,7 @@ class ResultsViewingTab(QWidget):
         self.students_table.setHorizontalHeaderLabels(topics)
         self.students_table.setVerticalHeaderLabels(students)
         for i, student in enumerate(students):
+            self.students_table.setRowHeight(i, 60)
             for j, topic in enumerate(topics):
                 scores = data[student].get(topic, [])
                 if scores:
@@ -1405,22 +1422,22 @@ class ResultsViewingTab(QWidget):
         except Exception:
             time_str = result.get("timestamp", "")
         html = []
-        html.append(f'<div><strong>Тестируемый:</strong> {result.get("student", "")}</div>')
-        html.append(f'<div><strong>Время начала теста:</strong> {time_str}</div>')
-        html.append(f'<div><strong>Тест:</strong> {result.get("test_topic", "")}</div><br>')
-        html.append('<div><strong>Результаты:</strong></div>')
+        html.append(f'<div style="font-size: 24px;"><strong>Тестируемый:</strong> {result.get("student", "")}</div>')
+        html.append(f'<div style="font-size: 24px;"><strong>Время начала теста:</strong> {time_str}</div>')
+        html.append(f'<div style="font-size: 24px;"><strong>Тест:</strong> {result.get("test_topic", "")}</div><br>')
+        html.append('<div style="font-size: 24px;"><strong>Результаты:</strong></div>')
         for i, item in enumerate(result.get("results", []), 1):
             bg_color = "#ffcccc" if item.get("score", 0) < 1 else "transparent"
-            html.append(f'<div style="background-color:{bg_color};"><strong>Вопрос {i}:</strong> {item.get("question", "")}</div>')
-            html.append(f'<div style="background-color:{bg_color};"><strong>Правильный ответ:</strong> {item.get("correct_answer", "")}</div>')
+            html.append(f'<div style="background-color:{bg_color}; font-size: 24px;"><strong>Вопрос {i}:</strong> {item.get("question", "")}</div>')
+            html.append(f'<div style="background-color:{bg_color}; font-size: 24px;"><strong>Правильный ответ:</strong> {item.get("correct_answer", "")}</div>')
             ua = item.get("user_answer", "")
             if isinstance(ua, list):
                 ua = ", ".join(ua)
-            html.append(f'<div style="background-color:{bg_color};"><strong>Ответ тестируемого:</strong> {ua}</div>')
-            html.append(f'<div style="background-color:{bg_color};"><strong>Баллы:</strong> {item.get("score", 0)}</div><br>')
-        html.append(f'<div><strong>Итоговый балл:</strong> {result.get("total_score", 0)}</div>')
-        html.append(f'<div><strong>Всего вопросов:</strong> {result.get("total_questions", 0)}</div>')
-        html.append(f'<div><strong>Процент прохождения:</strong> {round(result.get("percent", 0), 2)}%</div>')
+            html.append(f'<div style="background-color:{bg_color};font-size: 24px;"><strong>Ответ тестируемого:</strong> {ua}</div>')
+            html.append(f'<div style="background-color:{bg_color};font-size: 24px;"><strong>Баллы:</strong> {item.get("score", 0)}</div><br>')
+        html.append(f'<div style="font-size: 24px;"><strong>Итоговый балл:</strong> {result.get("total_score", 0)}</div>')
+        html.append(f'<div style="font-size: 24px;"><strong>Всего вопросов:</strong> {result.get("total_questions", 0)}</div>')
+        html.append(f'<div style="font-size: 24px;"><strong>Процент прохождения:</strong> {round(result.get("percent", 0), 2)}%</div>')
         return "".join(html)
     
     def open_result(self):
@@ -1431,6 +1448,13 @@ class ResultsViewingTab(QWidget):
             if res:
                 formatted = self.format_result(res)
                 self.result_view.setHtml(formatted)
+                self.result_view.setStyleSheet(
+                    f"""
+                        {base_style}
+                        padding: 5px;
+                        border: 2px solid #000;
+                        border-radius: 5px; 
+                    """)
             else:
                 QMessageBox.warning(self, "Ошибка", "Результат не найден.")
         else:
