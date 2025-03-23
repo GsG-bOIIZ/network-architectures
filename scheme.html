@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Демонстрация прохождения пакета по TCP/IP</title>
+  <style>
+    /* =============== Общие стили страницы =============== */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+    }
+    h1 {
+      text-align: center;
+      margin: 10px 0;
+    }
+    /* Стартовый экран (остаётся на заднем плане) */
+    #startScreen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: #fff;
+      flex-direction: column;
+    }
+    #startScreen button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #28a745;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #startScreen button:hover {
+      opacity: 0.9;
+    }
+    /* =============== Popup с основным контентом =============== */
+    #mainContent {
+      position: fixed;
+      top: 2%;               /* Расположение от верха экрана */
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90vw;           /* Ширина занимает 90% от ширины окна */
+      max-width: 1100px;     /* Но не больше 1100px */
+      max-height: 97vh;      /* Ограничение по высоте — максимум 90% от высоты окна */
+      overflow-y: auto;      /* Если содержимого больше, появляется скролл */
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      z-index: 1001;
+      display: none;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+    /* Крестик (закрыть) */
+    #closeMainContentBtn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      cursor: pointer;
+      font-size: 28px;
+      font-weight: bold;
+      color: #888;
+    }
+    #closeMainContentBtn:hover {
+      color: #000;
+    }
+    /* =============== Верхняя часть: Canvas + OSI vs TCP/IP Grid =============== */
+    .top-container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+    }
+    .diagram-section {
+      flex: 1;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      margin-right: 10px;
+      position: relative;
+    }
+    #networkCanvas {
+      display: block;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+    /* Grid для OSI vs TCP/IP (7 строк, 2 столбца) */
+    .osi-tcp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;   /* 2 столбца */
+      grid-template-rows: repeat(7, auto); /* 7 строк (для каждого OSI уровня) */
+      gap: 5px;
+      width: 400px;
+      margin: 0 auto;
+    }
+    /* =============== OSI блоки =============== */
+    .osi-block {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 10px;
+      color: #fff;
+      font-weight: bold;
+      position: relative;
+    }
+    /* Цвета OSI-блоков */
+    .application    { background-color: #F9C49A; }
+    .presentation   { background-color: #F9C49A; }
+    .session        { background-color: #F9C49A; }
+    .transport      { background-color: #C4D7A0; }
+    .network        { background-color: #D99690; }
+    .datalink       { background-color: #BFCEE1; }
+    .physical       { background-color: #558BD5; }
+    /* Привязка OSI-блоков к строкам */
+    .osi-7 { grid-column: 1; grid-row: 1; }
+    .osi-6 { grid-column: 1; grid-row: 2; }
+    .osi-5 { grid-column: 1; grid-row: 3; }
+    .osi-4 { grid-column: 1; grid-row: 4; }
+    .osi-3 { grid-column: 1; grid-row: 5; }
+    .osi-2 { grid-column: 1; grid-row: 6; }
+    .osi-1 { grid-column: 1; grid-row: 7; }
+    /* Подсветка активного OSI-блока */
+    .active-layer {
+      outline: 2px solid #000;
+      box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+    }
+    /* Дополнительная информация внутри OSI-блока */
+    .layer-info {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.5s ease;
+      font-size: 13px;
+      margin-top: 5px;
+    }
+    .layer-info.expanded {
+      max-height: 60px;
+    }
+    /* =============== TCP/IP блоки =============== */
+    .tcp-block {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+      padding: 10px;
+      color: #333;
+      text-align: center;
+      font-weight: bold;
+      position: relative;
+    }
+    .tcp-block.active-group {
+      background-color: #ccc;
+      border: 2px solid #000;
+    }
+    /* Привязка TCP/IP блоков к строкам */
+    .tcp-app        { grid-column: 2; grid-row: 1 / 4; }  /* строки 1-3 */
+    .tcp-transport  { grid-column: 2; grid-row: 4; }
+    .tcp-internet   { grid-column: 2; grid-row: 5; }
+    .tcp-datalink   { grid-column: 2; grid-row: 6; }
+    .tcp-physical   { grid-column: 2; grid-row: 7; }
+    /* =============== Нижняя часть (описание + кнопки) =============== */
+    #description {
+      padding: 25px;
+      border-top: 1px solid #ccc;
+      font-size: 16px;
+      background-color: #fafafa;
+      /* text-align: center; */
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 15px;
+      border-top: 1px solid #ccc;
+      background-color: #fafafa;
+    }
+    .controls button {
+      padding: 10px 20px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 14px;
+    }
+    #prevBtn { background-color: #89949e; }
+    #playBtn { background-color: #4b9c5e; }
+    #nextBtn { background-color: #4681c0; }
+    #resetBtn { background-color: #ce4654; }
+    .controls button:hover {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Стартовый экран (остаётся видимым) -->
+<div id="startScreen">
+  <!-- <h1>Добро пожаловать!</h1>
+  <p>Нажмите «Начать», чтобы увидеть демонстрацию прохождения пакета по TCP/IP.</p> -->
+  <button id="startBtn">Начать</button>
+</div>
+
+<!-- Popup с основным контентом -->
+<div id="mainContent">
+  <span id="closeMainContentBtn">&times;</span>
+  <h2 style="padding-top:20px; text-align:center; margin-bottom: 0;">Демонстрация прохождения пакета по TCP/IP</h2>
+
+  <div class="top-container">
+    <!-- Левая часть: Canvas -->
+    <div class="diagram-section">
+      <canvas id="networkCanvas" width="600" height="350"></canvas>
+      <!-- Перемещённые кнопки управления сразу под canvas -->
+      <div class="controls">
+        <button id="prevBtn">Назад</button>
+        <button id="playBtn">Play</button>
+        <button id="nextBtn">Вперёд</button>
+        <button id="resetBtn">Сброс</button>
+      </div>
+    </div>
+    <!-- Правая часть: Сетка OSI vs TCP/IP -->
+    <div class="osi-tcp-grid">
+      <!-- OSI блоки (7 уровней) -->
+      <div class="osi-block application osi-7" data-layer="application">
+        Прикладной
+        <div class="layer-info" id="info-application"></div>
+      </div>
+      <div class="osi-block presentation osi-6" data-layer="presentation">
+        Представления
+        <div class="layer-info" id="info-presentation"></div>
+      </div>
+      <div class="osi-block session osi-5" data-layer="session">
+        Сеансовый
+        <div class="layer-info" id="info-session"></div>
+      </div>
+      <div class="osi-block transport osi-4" data-layer="transport">
+        Транспортный
+        <div class="layer-info" id="info-transport"></div>
+      </div>
+      <div class="osi-block network osi-3" data-layer="network">
+        Сетевой
+        <div class="layer-info" id="info-network"></div>
+      </div>
+      <div class="osi-block datalink osi-2" data-layer="datalink">
+        Канальный
+        <div class="layer-info" id="info-datalink"></div>
+      </div>
+      <div class="osi-block physical osi-1" data-layer="physical">
+        Физический
+        <div class="layer-info" id="info-physical"></div>
+      </div>
+
+      <!-- TCP/IP блоки (5 штук) -->
+      <div class="tcp-block tcp-app" data-group="applications">
+        Уровень приложений
+      </div>
+      <div class="tcp-block tcp-transport" data-group="transport">
+        Транспортный уровень
+      </div>
+      <div class="tcp-block tcp-internet" data-group="internet">
+        Интернет уровень
+      </div>
+      <div class="tcp-block tcp-datalink" data-group="datalink">
+        Канальный
+      </div>
+      <div class="tcp-block tcp-physical" data-group="physical">
+        Физический
+      </div>
+    </div>
+  </div>
+
+  <!-- Описание текущего шага -->
+  <div id="description">Описание текущего шага</div>
+</div>
+
+<script>
+  // ====================== ЛОГИКА ПОКАЗА/СКРЫТИЯ POPUP ======================
+  const startScreen = document.getElementById('startScreen');
+  const startBtn = document.getElementById('startBtn');
+  const mainContent = document.getElementById('mainContent');
+  const closeMainContentBtn = document.getElementById('closeMainContentBtn');
+
+  function showMainContent() {
+    mainContent.style.display = 'block';
+    drawNetwork();
+  }
+  function hideMainContent() {
+    mainContent.style.display = 'none';
+  }
+  startBtn.addEventListener('click', showMainContent);
+  closeMainContentBtn.addEventListener('click', hideMainContent);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === "Escape" && mainContent.style.display === 'block') {
+      hideMainContent();
+    }
+  });
+
+  // ====================== ЛОГИКА CANVAS (Анимация пакета) ======================
+  const canvas = document.getElementById('networkCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Подготовка изображений
+  const senderImg = new Image();
+  senderImg.src = './images/pc.jpg';
+  const routerImg = new Image();
+  routerImg.src = './images/router.jpg';
+  const receiverImg = new Image();
+  receiverImg.src = './images/pc.jpg';
+  const packageImg = new Image();
+  packageImg.src = './images/mail.jpg';
+
+  // Координаты устройств
+  const positions = {
+    sender:   { x: 100, y: 300 },
+    router:   { x: 300, y: 200 },
+    receiver: { x: 500, y: 300 }
+  };
+
+  // Позиция пакета
+  let packetX = positions.sender.x;
+  let packetY = positions.sender.y;
+
+  // Анимационные переменные
+  let isAnimating = false;
+  let animationStart = null;
+  let animationDuration = 1000;
+  let fromCoord = { x: 0, y: 0 };
+  let toCoord = { x: 0, y: 0 };
+  let onAnimationEnd = null;
+
+  // Задаём смещение (отрицательное значение поднимает содержимое вверх)
+const offsetY = -50;
+
+function drawNetwork() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Отправитель
+  ctx.drawImage(senderImg, positions.sender.x - 20, positions.sender.y - 20 + offsetY, 40, 40);
+  ctx.fillStyle = '#000';
+  ctx.font = '14px Arial';
+  ctx.fillText("Отправитель", positions.sender.x - 30, positions.sender.y + 35 + offsetY);
+
+  // Маршрутизатор
+  ctx.drawImage(routerImg, positions.router.x - 20, positions.router.y - 20 + offsetY, 40, 40);
+  ctx.fillText("Маршрутизатор", positions.router.x - 40, positions.router.y + 35 + offsetY);
+
+  // Получатель
+  ctx.drawImage(receiverImg, positions.receiver.x - 20, positions.receiver.y - 20 + offsetY, 40, 40);
+  ctx.fillText("Получатель", positions.receiver.x - 30, positions.receiver.y + 35 + offsetY);
+
+  // Соединительные линии
+  ctx.strokeStyle = '#888';
+  ctx.beginPath();
+  ctx.moveTo(positions.sender.x + 20, positions.sender.y + offsetY);
+  ctx.lineTo(positions.router.x - 10, positions.router.y + 10 + offsetY);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(positions.router.x + 10, positions.router.y + 10 + offsetY);
+  ctx.lineTo(positions.receiver.x - 20, positions.receiver.y + offsetY);
+  ctx.stroke();
+
+  // Пакет
+  ctx.drawImage(packageImg, packetX - 10, packetY - 10 + offsetY, 20, 20);
+}
+
+  function animatePacket(from, to, duration, callback) {
+    isAnimating = true;
+    animationStart = null;
+    fromCoord = { x: from.x, y: from.y };
+    toCoord = { x: to.x, y: to.y };
+    animationDuration = duration;
+    onAnimationEnd = callback;
+    requestAnimationFrame(step);
+  }
+  function step(timestamp) {
+    if (!animationStart) animationStart = timestamp;
+    const elapsed = timestamp - animationStart;
+    const progress = Math.min(elapsed / animationDuration, 1);
+    packetX = fromCoord.x + (toCoord.x - fromCoord.x) * progress;
+    packetY = fromCoord.y + (toCoord.y - fromCoord.y) * progress;
+    drawNetwork();
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      isAnimating = false;
+      if (onAnimationEnd) onAnimationEnd();
+    }
+  }
+
+  // ====================== СОСТОЯНИЯ (ШАГИ) ======================
+  const states = [
+    {
+      description: `
+                    <h3>Прикладной Уровень (Application): <em>Ваше Желание Отправить Сообщение</em></h3> 
+                    <p>Это самый верхний уровень, где вы, как пользователь, взаимодействуете с программой.  Когда вы пишете текст в мессенджере и нажимаете "Отправить",  прикладной уровень отвечает за то, чтобы ваша программа поняла, что именно вы хотите передать.<p>
+                    <h4>Аналогия: Вы решаете, что именно хотите сказать в письме.<h4>
+                `,
+      activeLayer: "application",
+      moveTo: null,
+      packetPos: positions.sender
+    },
+    {
+      description: `
+                    <h3>Представительский Уровень (Presentation): Формат и Упаковка</h3>
+                    <p>На этом уровне заказ приводится к нужному формату, чтобы ресторан мог его понять. Если необходимо, информация о заказе упаковывается для защиты.</p>
+                    <h4>Аналогия: Вы оформляете заказ в понятном виде и, если нужно, упаковываете его в специальный конверт для сохранности.</h4>
+                `,
+      activeLayer: "presentation",
+      moveTo: null,
+      packetPos: positions.sender
+    },
+    {
+      description: `
+                    <h3>Сеансовый Уровень (Session): Установление Связи</h3>
+                    <p>Этот уровень управляет "разговором" между вашим устройством и рестораном. Он устанавливает и поддерживает соединение для передачи данных о заказе.</p>
+                    <h4>Аналогия: Вы договариваетесь с рестораном, что сейчас будете делать заказ, чтобы они были готовы его принять.</h4>
+                `,
+      activeLayer: "session",
+      moveTo: null,
+      packetPos: positions.sender
+    },
+    {
+      description: `
+                    <h3>Транспортный Уровень (Transport): Надежная Доставка (TCP)</h3>
+                    <p>Транспортный уровень отвечает за надежную доставку заказа. Он разбивает информацию на части (пакеты), нумерует их и отправляет. Протокол TCP здесь играет ключевую роль. Он гарантирует, что все части заказа дойдут до ресторана в правильном порядке и без потерь. Если часть информации потеряется, TCP запросит её повторную отправку.</p>
+                    <h4>Аналогия: Вы отправляете заказ через надежную службу доставки, которая гарантирует, что всё будет доставлено и отслеживает, чтобы ничего не потерялось. Если часть заказа потеряется, служба доставки попросит вас отправить её заново.</h4>
+                `,
+      activeLayer: "transport",
+      moveTo: null,
+      packetPos: positions.sender
+    },
+    {
+      description: `
+                    <h3>Сетевой Уровень (Network): Адресация и Маршрутизация (IP и Маршрутизатор)</h3>
+                    <p>Сетевой уровень добавляет к каждому пакету IP-адреса отправителя и получателя. IP-адрес - это как адрес ресторана в интернете. Маршрутизаторы работают на этом уровне. Они анализируют IP-адрес ресторана и определяют лучший путь для доставки информации, пересылая её от одного маршрутизатора к другому, пока она не достигнет сети ресторана.</p>
+                    <h4>Аналогия: Вы пишете полный адрес ресторана на заказе. Маршрутизатор – это как служба доставки, которая направляет заказ по оптимальному маршруту к нужному ресторану.</h4> 
+                `,
+      activeLayer: "network",
+      moveTo: null,
+      packetPos: positions.sender
+    },
+    {
+      description: `
+                    <h3>6. Канальный Уровень (Data Link): Доставка в Локальной Сети (MAC-адрес)</h3>
+                    <p>Канальный уровень отвечает за передачу данных между ближайшими устройствами в локальной сети, например, между вашим компьютером и вашим роутером или между двумя маршрутизаторами. Он использует MAC-адреса - уникальные аппаратные адреса сетевых устройств для идентификации в локальной сети.</p>
+                    <h4>Аналогия: В пределах службы доставки, заказ передается между разными отделами и курьерами, которые будут доставлять его по конкретным адресам. MAC-адрес как номер квартиры в пределах района, а IP-адрес как полный адрес доставки.</h4>
+                `,
+      activeLayer: "datalink",
+      moveTo: null,
+      packetPos: positions.sender
+    },
+    {
+      description: `
+                    <h3>Физический Уровень (Physical): Сигналы по Среде Передачи</h3>
+                    <p>Это самый нижний уровень. Он преобразует данные в физические сигналы (электрические, оптические, радиоволны) и передает их по физической среде – кабелям, проводам или через беспроводное соединение (Wi-Fi).</p>
+                    <h4>Аналогия: Это как физическая доставка заказа – курьеры, автомобили, велосипеды, которые доставляют пиццу физически.</h4>
+                `,
+      activeLayer: "physical",
+      moveTo: "router",
+      packetPos: positions.router
+    },
+    {
+      description: `
+                    <h3>Маршрутизатор и его Работа на Уровнях OSI</h3>
+                    <p>Маршрутизатор активно работает на сетевом (3) и канальном (2) уровнях OSI. Когда пакет приходит на маршрутизатор:</p>
+                    <ol>
+                        <li>
+                            <strong>Физический и Канальный уровни:</strong> Маршрутизатор принимает сигнал, проверяет MAC-адрес, и, убедившись, что кадр адресован ему, "раздевает" кадр канального уровня, извлекая IP-пакет.
+                            <br><em>Аналогия: Это как если бы почтальон проверял адрес на конверте и, убедившись, что письмо предназначено для него, открывал конверт, чтобы извлечь само письмо.</em>
+                        </li>
+                        <li>
+                            <strong>Сетевой уровень:</strong> Маршрутизатор анализирует IP-адрес назначения в IP-пакете, ищет маршрут в своей таблице маршрутизации и определяет следующий шаг (next hop) для пакета.
+                            <br><em>Аналогия: Это как если бы почтальон смотрел на адрес в письме и проверял карту, чтобы понять, куда доставить его дальше.</em>
+                        </li>
+                        <li>
+                            <strong>Канальный и Физический уровни:</strong> Маршрутизатор "одевает" IP-пакет в новый кадр канального уровня, предназначенный для следующего участка пути, и отправляет сигнал через соответствующий физический интерфейс.
+                            <br><em>Аналогия: Это как если бы почтальон запаковывал письмо в новый конверт, чтобы отправить его в следующий почтовый отдел, и передавал его через нужный транспорт.</em>
+                        </li>
+                    </ol>
+                `,
+      activeLayer: "network",
+      moveTo: null,
+      packetPos: positions.router
+    },
+    {
+      description: `
+                    <h3>Физический уровень</h3> 
+                    <p>Маршрутизатор отправляет пакет получателю.</p> 
+                `,
+      activeLayer: "physical",
+      moveTo: "receiver",
+      packetPos: positions.receiver
+    },
+    {
+      description: `
+                    <h3>Канальный уровень (получатель)</h3> 
+                    <p>Разбор кадров, проверка MAC.</p> 
+                `,
+      activeLayer: "datalink",
+      moveTo: null,
+      packetPos: positions.receiver
+    },
+    {
+      description: `
+                    <h3>Сетевой уровень (получатель)</h3> 
+                    <p>Извлечение IP-заголовка, определение адреса.</p> 
+                `,
+      activeLayer: "network",
+      moveTo: null,
+      packetPos: positions.receiver
+    },
+    {
+      description: `
+                    <h3>Транспортный уровень (получатель)</h3> 
+                    <p>Сегментация и сборка сегментов, проверка портов.</p> 
+                `,
+      activeLayer: "transport",
+      moveTo: null,
+      packetPos: positions.receiver
+    },
+    {
+      description: `
+                    <h3>Сеансовый уровень (получатель)</h3> 
+                    <p>Управление сеансом связи.</p> 
+                `,
+      activeLayer: "session",
+      moveTo: null,
+      packetPos: positions.receiver
+    },
+    {
+      description: `
+                    <h3>Представления (получатель)</h3> 
+                    <p>Данные декодируются и расшифровываются.</p> 
+                `,
+      activeLayer: "presentation",
+      moveTo: null,
+      packetPos: positions.receiver
+    },
+    {
+      description: `
+                    <h3>Прикладной (получатель)</h3> 
+                    <p>Приложение обрабатывает полученные данные.</p> 
+                `,
+      activeLayer: "application",
+      moveTo: null,
+      packetPos: positions.receiver
+    }
+  ];
+  let currentIndex = 0;
+  let playInterval = null; // флаг автоматического проигрывания
+
+  // ====================== Подсветка OSI и TCP/IP блоков ======================
+  // Привязка OSI уровня к классу для Grid (инвертированная нумерация)
+  const layerToRowClass = {
+    application: "osi-7",
+    presentation: "osi-6",
+    session: "osi-5",
+    transport: "osi-4",
+    network: "osi-3",
+    datalink: "osi-2",
+    physical: "osi-1"
+  };
+
+  // Сопоставление для TCP/IP блока
+  const tcpipGroupMapping = {
+    application:  "applications",
+    presentation: "applications",
+    session:      "applications",
+    transport:    "transport",
+    network:      "internet",
+    datalink:     "datalink",
+    physical:     "physical"
+  };
+
+  function highlightLayers(activeLayer) {
+    // Снимаем активность со всех OSI блоков
+    document.querySelectorAll('.osi-block').forEach(el => {
+      el.classList.remove('active-layer');
+      const infoDiv = el.querySelector('.layer-info');
+      if (infoDiv) {
+        infoDiv.classList.remove('expanded');
+        infoDiv.textContent = "";
+      }
+    });
+    // Активируем нужный OSI блок
+    const rowClass = layerToRowClass[activeLayer];
+    const activeOsiEl = document.querySelector(`.osi-block.${rowClass}`);
+    if (activeOsiEl) {
+      activeOsiEl.classList.add('active-layer');
+      const infoDiv = activeOsiEl.querySelector('.layer-info');
+      if (infoDiv) {
+        infoDiv.textContent = layerExplanations[activeLayer] || "";
+        setTimeout(() => infoDiv.classList.add('expanded'), 10);
+      }
+    }
+    // Подсветка TCP/IP блока
+    document.querySelectorAll('.tcp-block').forEach(el => {
+      el.classList.remove('active-group');
+    });
+    const groupId = tcpipGroupMapping[activeLayer];
+    const tcpBlockEl = document.querySelector(`.tcp-block[data-group="${groupId}"]`);
+    if (tcpBlockEl) {
+      tcpBlockEl.classList.add('active-group');
+    }
+  }
+
+  // ====================== Обновление вида ======================
+  function updateView() {
+    const state = states[currentIndex];
+    // Используем innerHTML для вывода HTML-разметки из state.description
+    document.getElementById('description').innerHTML = state.description;
+    highlightLayers(state.activeLayer);
+    drawNetwork();
+  }
+
+  // ====================== Переход между состояниями ======================
+  function goToState(index) {
+    if (index < 0 || index >= states.length) return;
+    const prevState = states[currentIndex];
+    currentIndex = index;
+    const newState = states[currentIndex];
+    if (prevState.packetPos.x !== newState.packetPos.x ||
+        prevState.packetPos.y !== newState.packetPos.y) {
+      animatePacket({x: packetX, y: packetY}, newState.packetPos, 1000, () => {
+        if (playInterval) {
+          setTimeout(() => nextState(), 500);
+        }
+      });
+    } else {
+      updateView();
+      if (playInterval && !isAnimating) {
+        setTimeout(() => nextState(), 500);
+      }
+    }
+    updateView();
+  }
+  function nextState() {
+    if (currentIndex < states.length - 1) {
+      goToState(currentIndex + 1);
+    } else {
+      stopPlay();
+    }
+  }
+  function prevState() {
+    if (currentIndex > 0) {
+      goToState(currentIndex - 1);
+    }
+  }
+
+  // ====================== Кнопки управления ======================
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const playBtn = document.getElementById('playBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  prevBtn.addEventListener('click', () => { if (!isAnimating) prevState(); });
+  nextBtn.addEventListener('click', () => { if (!isAnimating) nextState(); });
+  playBtn.addEventListener('click', () => {
+    if (playInterval) {
+      stopPlay();
+    } else {
+      startPlay();
+    }
+  });
+  resetBtn.addEventListener('click', () => {
+    stopPlay();
+    currentIndex = 0;
+    packetX = positions.sender.x;
+    packetY = positions.sender.y;
+    updateView();
+    // hideMainContent();
+  });
+
+  function startPlay() {
+    playBtn.textContent = "Стоп";
+    playInterval = true;
+    if (!isAnimating) nextState();
+  }
+  function stopPlay() {
+    playBtn.textContent = "Play";
+    playInterval = null;
+  }
+
+  // ====================== Инициализация ======================
+  senderImg.onload = () => {
+    packetX = positions.sender.x;
+    packetY = positions.sender.y;
+    goToState(0);
+  };
+  if (senderImg.complete) {
+    packetX = positions.sender.x;
+    packetY = positions.sender.y;
+    goToState(0);
+  }
+  
+  // Объект с дополнительной информацией по уровням OSI
+  const layerExplanations = {
+    application: "Формирование сообщения, взаимодействие с пользователем.",
+    presentation: "Кодирование, шифрование, сжатие данных.",
+    session: "Установление и управление сеансами связи.",
+    transport: "Сегментация данных, контроль доставки (TCP/UDP).",
+    network: "Маршрутизация и IP-адресация.",
+    datalink: "Формирование кадров, контроль ошибок.",
+    physical: "Передача бит по физической среде."
+  };
+</script>
+
+</body>
+</html>

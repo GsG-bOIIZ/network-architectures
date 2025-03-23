@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Демонстрация коллизии между двумя компьютерами</title>
+  <style>
+    body {
+      margin: 0; padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+    }
+    /* Стили стартового экрана */
+    #startScreen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: #fff;
+      flex-direction: column;
+    }
+    #startScreen button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #28a745;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #startScreen button:hover {
+      opacity: 0.9;
+    }
+    
+    /* Стили основного контента */
+    #mainContent {
+      position: fixed;
+      top: 5%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90vw; max-width: 800px;
+      max-height: 90vh;
+      overflow-y: auto;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      display: none;
+      padding-bottom: 10px;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 15px;
+      border-top: 1px solid #ccc;
+      background-color: #fafafa;
+    }
+    .controls button {
+      padding: 10px 20px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 14px;
+    }
+    #prevBtn { background-color: #89949e; }
+    #playBtn { background-color: #4b9c5e; }
+    #nextBtn { background-color: #4681c0; }
+    #resetBtn { background-color: #ce4654; }
+    .controls button:hover {
+      opacity: 0.8;
+    }
+    #closeMainContentBtn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      cursor: pointer;
+      font-size: 28px;
+      font-weight: bold;
+      color: #888;
+    }
+    #closeMainContentBtn:hover { color: #000; }
+    #description {
+      padding: 15px;
+      border-top: 1px solid #ccc;
+      background-color: #fafafa;
+      font-size: 16px;
+    }
+    canvas { background-color: #fff; }
+  </style>
+</head>
+<body>
+
+<!-- Стартовый экран -->
+<div id="startScreen"> 
+  <button id="startBtn">Начать</button>
+</div>
+
+<!-- Основной контент с демонстрацией -->
+<div id="mainContent">
+  <span id="closeMainContentBtn">&times;</span>
+  <h2 style="text-align:center; padding-top:20px;">Демонстрация коллизии между компьютерами</h2>
+  <div style="display: flex; justify-content: center; align-items: center;">
+    <canvas id="networkCanvas" width="600" height="300"></canvas>
+  </div>  
+  <div class="controls">
+    <button id="prevBtn">Назад</button>
+    <button id="playBtn">Play</button>
+    <button id="nextBtn">Вперёд</button>
+    <button id="resetBtn">Сброс</button>
+  </div>
+  <div id="description">Описание текущего шага</div>
+</div>
+
+<script>
+  // ===== Управление стартовым экраном и основным контентом =====
+  const startScreen = document.getElementById('startScreen');
+  const startBtn = document.getElementById('startBtn');
+  const mainContent = document.getElementById('mainContent');
+  const closeMainContentBtn = document.getElementById('closeMainContentBtn');
+
+  function showMainContent() {
+    mainContent.style.display = 'block';
+    drawNetwork();
+  }
+  function hideMainContent() {
+    mainContent.style.display = 'block';
+  }
+  startBtn.addEventListener('click', () => {
+    startScreen.style.display = 'flex';
+    startScreen.style.zIndex = '-100';
+    showMainContent();
+  });
+  closeMainContentBtn.addEventListener('click', hideMainContent);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === "Escape" && mainContent.style.display === 'block') {
+      hideMainContent();
+    }
+  });
+  
+  // ===== Canvas и изображения =====
+  const canvas = document.getElementById('networkCanvas');
+  const ctx = canvas.getContext('2d');
+  
+  // Изображения компьютеров и пакетов
+  const compAImg = new Image(); compAImg.src = './images/pc.jpg';
+  const compBImg = new Image(); compBImg.src = './images/pc.jpg';
+  const messageImg = new Image(); messageImg.src = './images/mail.jpg';
+  const errorImg = new Image(); errorImg.src = './images/exclamation.png'; // для отображения коллизии
+  
+  // Координаты компьютеров A и B
+  const positions = {
+    A: { x: 100, y: 150 },
+    B: { x: 500, y: 150 }
+  };
+  
+  // Глобальные переменные для анимации пакетов
+  let listenPos = { x: positions.A.x, y: positions.A.y };
+  let packetAPos = { x: positions.A.x, y: positions.A.y };
+  let packetBPos = { x: positions.B.x, y: positions.B.y };
+  
+  // Режимы: listening, sendingCollision, retransmission
+  let currentMode = "";
+  let listeningAnimationId = null;
+  
+  // Функция отрисовки схемы
+  function drawNetwork() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Рисуем компьютеры A и B
+    ctx.drawImage(compAImg, positions.A.x - 20, positions.A.y - 20, 40, 40);
+    ctx.fillStyle = '#000';
+    ctx.font = '14px Arial';
+    ctx.fillText("Компьютер A", positions.A.x - 30, positions.A.y + 35);
+    
+    ctx.drawImage(compBImg, positions.B.x - 20, positions.B.y - 20, 40, 40);
+    ctx.fillText("Компьютер B", positions.B.x - 30, positions.B.y + 35);
+    
+    // Рисуем линию между компьютерами
+    ctx.strokeStyle = '#888';
+    ctx.beginPath();
+    ctx.moveTo(positions.A.x + 20, positions.A.y);
+    ctx.lineTo(positions.B.x - 20, positions.B.y);
+    ctx.stroke();
+    
+    // Отрисовка в зависимости от режима
+    if(currentMode === "listening"){
+      ctx.drawImage(messageImg, listenPos.x - 10, listenPos.y - 10, 20, 20);
+    } else if(currentMode === "sendingCollision"){
+      // На начальной фазе показываем пакеты, а затем – коллизию
+      if (packetAPos.x !== packetBPos.x) {
+        ctx.drawImage(messageImg, packetAPos.x - 10, packetAPos.y - 10, 20, 20);
+        ctx.drawImage(messageImg, packetBPos.x - 10, packetBPos.y - 10, 20, 20);
+      } else {
+        // Когда пакеты остановились в центре, отображаем коллизию (иконки ошибки)
+        const midX = (positions.A.x + positions.B.x) / 2;
+        const midY = (positions.A.y + positions.B.y) / 2;
+        ctx.drawImage(errorImg, midX - 20, midY - 10, 20, 20);
+        ctx.drawImage(errorImg, midX, midY - 10, 20, 20);
+      }
+    } else if(currentMode === "retransmission"){
+      ctx.drawImage(messageImg, packetAPos.x - 10, packetAPos.y - 10, 20, 20);
+      ctx.drawImage(messageImg, packetBPos.x - 10, packetBPos.y - 10, 20, 20);
+    }
+  }
+  
+  // ===== Анимация режима "Прослушивание канала": плавное движение пакета между A и B =====
+  function startListeningCycle() {
+    currentMode = "listening";
+    let startTime = null;
+    function animate(time) {
+      if (!startTime) startTime = time;
+      const duration = 2000; // полный цикл (туда и обратно)
+      const elapsed = time - startTime;
+      const t = (elapsed % duration) / duration;
+      // Вычисляем прогресс движения: сначала от A к B, затем обратно
+      const p = t < 0.5 ? t * 2 : (1 - (t - 0.5) * 2);
+      listenPos.x = positions.A.x + (positions.B.x - positions.A.x) * p;
+      listenPos.y = positions.A.y + (positions.B.y - positions.A.y) * p;
+      drawNetwork();
+      listeningAnimationId = requestAnimationFrame(animate);
+    }
+    listeningAnimationId = requestAnimationFrame(animate);
+  }
+  
+  // Остановка анимации режима listening
+  function stopListeningCycle() {
+    cancelAnimationFrame(listeningAnimationId);
+  }
+  
+  // ===== Анимация "Одновременная отправка данных и коллизия" =====
+  function animateSendingCollision(duration, callback) {
+    currentMode = "sendingCollision";
+    const startTime = performance.now();
+    const startA = { ...positions.A };
+    const startB = { ...positions.B };
+    const midPoint = { x: (positions.A.x + positions.B.x) / 2, y: (positions.A.y + positions.B.y) / 2 };
+    function animate(time) {
+      const elapsed = time - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      if (progress < 0.5) {
+        // Движение пакетов к центру
+        packetAPos.x = startA.x + (midPoint.x - startA.x) * (progress * 2);
+        packetAPos.y = startA.y + (midPoint.y - startA.y) * (progress * 2);
+        packetBPos.x = startB.x + (midPoint.x - startB.x) * (progress * 2);
+        packetBPos.y = startB.y + (midPoint.y - startB.y) * (progress * 2);
+        drawNetwork();
+        requestAnimationFrame(animate);
+      } else {
+        // Останавливаем пакеты в центре и отображаем коллизию (иконки ошибки)
+        packetAPos.x = midPoint.x;
+        packetAPos.y = midPoint.y;
+        packetBPos.x = midPoint.x;
+        packetBPos.y = midPoint.y;
+        currentMode = "sendingCollision";
+        drawNetwork();
+        setTimeout(() => { callback && callback(); }, 1000);
+      }
+    }
+    requestAnimationFrame(animate);
+  }
+  
+  // ===== Анимация одиночного пакета (для retransmission) =====
+  function animateSinglePacket(packet, from, to, duration, callback) {
+    const startTime = performance.now();
+    function animate(time) {
+      const elapsed = time - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      if(packet === "A") {
+        packetAPos.x = from.x + (to.x - from.x) * progress;
+        packetAPos.y = from.y + (to.y - from.y) * progress;
+      } else if(packet === "B") {
+        packetBPos.x = from.x + (to.x - from.x) * progress;
+        packetBPos.y = from.y + (to.y - from.y) * progress;
+      }
+      drawNetwork();
+      if(progress < 1) { 
+        requestAnimationFrame(animate); 
+      } else { 
+        callback && callback(); 
+      }
+    }
+    requestAnimationFrame(animate);
+  }
+  
+  // ===== Анимация "Повторная попытка передачи": последовательная отправка пакетов =====
+  function animateRetransmission(callback) {
+    currentMode = "retransmission";
+    // Сброс позиций пакетов
+    packetAPos = { ...positions.A };
+    packetBPos = { ...positions.B };
+    // Шаг 1: пакет от A к B
+    animateSinglePacket("A", positions.A, positions.B, 1000, () => {
+      // Шаг 2: пакет от B к A
+      animateSinglePacket("B", positions.B, positions.A, 1000, () => {
+        callback && callback();
+      });
+    });
+  }
+  
+  // ===== Состояния демонстрации =====
+  const states = [
+    {
+      description: `
+        <h3>Прослушивание канала</h3>
+        <p>Компьютеры <strong>A</strong> и <strong>B</strong> проверяют общий канал связи, чтобы убедиться, что он свободен для передачи данных.</p>
+        <p><em>Объяснение:</em> Оба устройства "слушают" линию связи и ждут, пока на канале не появятся помехи.</p>
+      `,
+      mode: "listening"
+    },
+    {
+      description: `
+        <h3>Отправка данных и обнаружение коллизии</h3>
+        <p>Оба компьютера <strong>A</strong> и <strong>B</strong> начинают передавать данные одновременно. Оба устройства считают, что канал свободен и запускают передачу.</p>
+        <p>Сигналы от компьютеров <strong>A</strong> и <strong>B</strong> сталкиваются, и оба устройства обнаруживают нарушение целостности передаваемых данных.</p>
+        <p>После обнаружения коллизии оба компьютера прекращают передачу, чтобы избежать дальнейших ошибок.</p>
+        `,
+      mode: "sendingCollision"
+    },
+    {
+      description: `
+        <h3>Повторная попытка передачи</h3>
+        <p>Компьютеры <strong>A</strong> и <strong>B</strong> ждут случайное время перед повторной попыткой передачи. Это снижает вероятность повторного столкновения.</p>
+        <p>После задержки устройства снова проверяют канал и начинают передачу, если он свободен.</p>
+        <p><em>Объяснение:</em> Процесс повторяется до успешной доставки данных.</p>
+        `,
+      mode: "retransmission"
+    }
+  ];
+  
+  let currentIndex = 0;
+  let playInterval = null;
+  
+  function updateView() {
+    document.getElementById('description').innerHTML = states[currentIndex].description;
+    currentMode = states[currentIndex].mode;
+    
+    // Останавливаем анимации, если это необходимо
+    stopListeningCycle();
+    
+    if(currentMode === "listening"){
+      startListeningCycle();
+    }
+    if(currentMode === "sendingCollision"){
+      animateSendingCollision(800, () => { if(playInterval) nextState(); });
+    }
+    if(currentMode === "retransmission"){
+      setTimeout(() => {
+        animateRetransmission(() => { if(playInterval) nextState(); });
+      }, 1000 + Math.random() * 500);
+    }
+    drawNetwork();
+  }
+  
+  function goToState(index) {
+    if(index < 0 || index >= states.length) return;
+    currentIndex = index;
+    updateView();
+  }
+  
+  function nextState() {
+    if(currentIndex < states.length - 1){
+      goToState(currentIndex + 1);
+    } else {
+      stopPlay();
+    }
+  }
+  
+  function prevState() {
+    if(currentIndex > 0){
+      goToState(currentIndex - 1);
+    }
+  }
+  
+  document.getElementById('prevBtn').addEventListener('click', () => { if(!playInterval) prevState(); });
+  document.getElementById('nextBtn').addEventListener('click', () => { if(!playInterval) nextState(); });
+  document.getElementById('playBtn').addEventListener('click', () => {
+    if(playInterval) { stopPlay(); } else { startPlay(); }
+  });
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    stopPlay();
+    currentIndex = 0;
+    stopListeningCycle();
+    listenPos = { ...positions.A };
+    packetAPos = { ...positions.A };
+    packetBPos = { ...positions.B };
+    updateView();
+  });
+  
+  function startPlay() {
+    document.getElementById('playBtn').textContent = "Стоп";
+    playInterval = true;
+    nextState();
+  }
+  
+  function stopPlay() {
+    document.getElementById('playBtn').textContent = "Play";
+    playInterval = null;
+    stopListeningCycle();
+  }
+  
+  // Инициализация после загрузки изображения
+  compAImg.onload = () => {
+    listenPos = { ...positions.A };
+    packetAPos = { ...positions.A };
+    packetBPos = { ...positions.B };
+    goToState(0);
+  };
+  if(compAImg.complete){
+    listenPos = { ...positions.A };
+    packetAPos = { ...positions.A };
+    packetBPos = { ...positions.B };
+    goToState(0);
+  }
+  
+  // Если основной контент уже отображён, обновляем схему
+  if(mainContent.style.display === "block"){
+    updateView();
+  }
+</script>
+
+</body>
+</html>

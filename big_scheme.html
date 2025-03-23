@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Сетевая демонстрация</title>
+  <style>
+    /* Общие стили */
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+    }
+    /* Стартовый экран – только кнопка "Открыть схему" */
+    #startScreen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: #fff;
+    }
+    #startScreen button {
+      padding: 15px 30px;
+      font-size: 18px;
+      background-color: #28a745;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #startScreen button:hover {
+      opacity: 0.9;
+    }
+    /* Popup с основным контентом */
+    #modalOverlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1001;
+    }
+    #mainContent {
+      width: 1700px;
+      height: 850px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      position: relative;
+    }
+    /* Кнопка закрытия */
+    #closeMainContentBtn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      cursor: pointer;
+      font-size: 28px;
+      font-weight: bold;
+      color: #888;
+    }
+    #closeMainContentBtn:hover {
+      color: #000;
+    }
+    /* Основной контейнер с тремя колонками */
+    .content-container {
+      display: flex;
+      padding: 20px;
+      gap: 20px;
+      flex: 1;
+    }
+    /* Левая колонка: Canvas (схема сети) */
+    .canvas-container {
+      /* flex: 1; */
+      background-color: #fff;
+      /* border: 1px solid #ccc; */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #networkCanvas {
+      width: 600px;
+      height: 720px;
+      border: 1px solid #aaa;
+      background-color: #fff;
+    }
+    /* Средняя колонка: osi-tcp-grid – высота 328 px */
+    .grid-container {
+      width: 400px;
+      height: 328px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .osi-tcp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr; /* OSI в левом, TCP/IP в правом */
+      grid-template-rows: repeat(7, 1fr); /* 7 равных строк */
+      gap: 5px;
+      height: 100%;
+    }
+    /* OSI блоки */
+    .osi-block {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 10px;
+      text-align: center;
+      font-weight: bold;
+      color: #fff;
+      position: relative;
+    }
+    .application    { background-color: #F9C49A; }
+    .presentation   { background-color: #F9C49A; }
+    .session        { background-color: #F9C49A; }
+    .transport      { background-color: #C4D7A0; }
+    .network        { background-color: #D99690; }
+    .datalink       { background-color: #BFCEE1; }
+    .physical       { background-color: #558BD5; }
+    /* Привязка OSI блоков к строкам (инвертированная нумерация) */
+    .osi-7 { grid-column: 1; grid-row: 1; }
+    .osi-6 { grid-column: 1; grid-row: 2; }
+    .osi-5 { grid-column: 1; grid-row: 3; }
+    .osi-4 { grid-column: 1; grid-row: 4; }
+    .osi-3 { grid-column: 1; grid-row: 5; }
+    .osi-2 { grid-column: 1; grid-row: 6; }
+    .osi-1 { grid-column: 1; grid-row: 7; }
+    /* TCP/IP блоки – изменён: вместо двух отдельных блоков "Канальный" и "Физический" объединён один */
+    .tcp-block {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+      padding: 10px;
+      text-align: center;
+      font-weight: bold;
+      color: #333;
+      position: relative;
+    }
+    .tcp-block.active-group {
+      background-color: #ccc;
+      border: 2px solid #000;
+    }
+    /* Привязка TCP/IP блоков:
+         - tcp-app: объединяет строки 1-3,
+         - tcp-transport: строка 4,
+         - tcp-internet: строка 5,
+         - tcp-kanal: объединяет строки 6-7 */
+    .tcp-app        { grid-column: 2; grid-row: 1 / span 3; }
+    .tcp-transport  { grid-column: 2; grid-row: 4; }
+    .tcp-internet   { grid-column: 2; grid-row: 5; }
+    .tcp-kanal      { grid-column: 2; grid-row: 6 / span 2; }
+    /* Правая колонка: две детали – оба блока высотой 328 px */
+    .details-container {
+      height: 348px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .levels-description {
+      /* flex: 0 0 50%;  верхняя половина */
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #e9e9e9;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+    }
+    .description-box {
+      /* flex: 0 0 50%;  нижняя половина */
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #fafafa;
+      font-size: 16px;
+      overflow-y: auto;
+      height: 100%;
+    }
+    .details-container1 {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .levels-description1 {
+      /* flex: 0 0 50%;  верхняя половина */
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #e9e9e9;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+    }
+    .description-box1 {
+      /* flex: 0 0 50%;  нижняя половина */
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #fafafa;
+      font-size: 16px;
+      overflow-y: auto;
+      height: 100%;
+    }
+    /* Нижняя панель с кнопками управления */
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 15px;
+      border-top: 1px solid #ccc;
+      background-color: #fafafa;
+    }
+    .controls button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      background-color: #4caf50;
+    }
+    .controls button:hover {
+      opacity: 0.8;
+    }
+    #prevBtn { background-color: #89949e; }
+    #playBtn { background-color: #4b9c5e; }
+    #nextBtn { background-color: #4681c0; }
+    #resetBtn { background-color: #ce4654; }
+    /* Подсветка активного уровня */
+    .active-layer {
+      outline: 2px solid #000;
+      box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Стартовый экран -->
+<div id="startScreen">
+  <button id="openSchemeBtn">Открыть схему</button>
+</div>
+
+<!-- Popup с основным контентом -->
+<div id="modalOverlay">
+  <div id="mainContent">
+    <span id="closeMainContentBtn">&times;</span>
+    <div class="content-container">
+      <!-- Левая колонка: Canvas -->
+      <div class="canvas-container">
+        <canvas id="networkCanvas" width="600" height="720"></canvas>
+      </div>
+      <!-- Средняя колонка: osi-tcp-grid -->
+      <div style="display: flex; flex-direction: column; width: 1000px;"> 
+        <div style="display: flex; width: 100%; height: 350px;">
+            <div class="grid-container" >
+                <div class="osi-tcp-grid">
+                <!-- OSI блоки (7 уровней) -->
+                <div class="osi-block application osi-7" data-layer="application">Прикладной</div>
+                <div class="osi-block presentation osi-6" data-layer="presentation">Представительский</div>
+                <div class="osi-block session osi-5" data-layer="session">Сеансовый</div>
+                <div class="osi-block transport osi-4" data-layer="transport">Транспортный</div>
+                <div class="osi-block network osi-3" data-layer="network">Сетевой</div>
+                <div class="osi-block datalink osi-2" data-layer="datalink">Канальный</div>
+                <div class="osi-block physical osi-1" data-layer="physical">Физический</div>
+                <!-- TCP/IP блоки (4 блока) -->
+                <div class="tcp-block tcp-app" data-group="applications">Уровень приложений</div>
+                <div class="tcp-block tcp-transport" data-group="transport">Транспортный уровень</div>
+                <div class="tcp-block tcp-internet" data-group="internet">Интернет уровень</div>
+                <div class="tcp-block tcp-kanal" data-group="datalink">Канальный</div>
+                </div>
+            </div>
+            <!-- Правая колонка: два описательных блока -->
+            <div class="details-container" style="width: 100%; margin-left: 20px;">
+                <!-- Верхний блок: статическое описание уровней -->
+                <div class="levels-description" id="levelsDescription">
+                Описание уровней TCP/IP и OSI<br>
+                (Основные особенности)
+                </div>
+                <!-- Нижний блок: динамическое описание того, что происходит на схеме -->
+                <div class="description-box" id="descriptionBox">
+                <!-- Здесь будет выводиться HTML-текст динамического состояния -->
+                </div>
+            </div>
+      </div>
+      <div class="details-container1">
+        <!-- Верхний блок: статическое описание уровней -->
+        <div class="levels-description1" id="levelsDescription1">
+          Пояснения
+        </div>
+        <!-- Нижний блок: динамическое описание того, что происходит на схеме -->
+        <div class="description-box1" id="descriptionBox1">
+          <!-- Здесь будет выводиться HTML-текст динамического состояния -->
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- Нижняя панель с кнопками управления -->
+    <div class="controls">
+      <button id="prevBtn">Назад</button>
+      <button id="playBtn">Play</button>
+      <button id="nextBtn">Вперёд</button>
+      <button id="resetBtn">Сброс</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ====== Логика показа/скрытия popup ====== */
+  const openSchemeBtn = document.getElementById('openSchemeBtn');
+  const modalOverlay = document.getElementById('modalOverlay');
+  const closeMainContentBtn = document.getElementById('closeMainContentBtn');
+
+  openSchemeBtn.addEventListener('click', () => {
+    modalOverlay.style.display = 'flex';
+    drawNetwork();
+    goToState(0);
+  });
+  closeMainContentBtn.addEventListener('click', () => {
+    modalOverlay.style.display = 'none';
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === "Escape" && modalOverlay.style.display === 'flex') {
+      modalOverlay.style.display = 'none';
+    }
+  });
+
+  /* ====== Логика Canvas (схема и анимация пакета) ====== */
+  const canvas = document.getElementById('networkCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Здесь можно заменить пути к изображениям на свои
+  const senderImg = new Image();
+    senderImg.src = 'images/computer.png';
+    const switchImg = new Image();
+    switchImg.src = 'images/switch.png';
+    const routerImg = new Image();
+    routerImg.src = 'images/router.png';
+    const receiverImg = new Image();
+    receiverImg.src = 'images/computer.png';
+    // Изображение пакета
+    const packetImg = new Image();
+    packetImg.src = 'images/mail.jpg';
+
+  /* Новые координаты для Canvas 600x720:
+     Верхняя сеть:
+       PC1: (50,50), PC2: (200,50), PC3: (350,50), PC4: (500,50)
+       SW1: (300,150)
+     Роутер:
+       R1: (300,360)
+     Нижняя сеть:
+       SW2: (300,540)
+       PC5: (50,600), PC6: (200,600), PC7: (350,600), PC8: (500,600)
+  */
+  const devices = [
+    { name: 'PC1',   x: 50,  y: 50,  img: senderImg },
+    { name: 'PC2',   x: 200, y: 50,  img: senderImg },
+    { name: 'PC3',   x: 350, y: 50,  img: senderImg },
+    { name: 'PC4',   x: 500, y: 50,  img: senderImg },
+    { name: 'SW1',   x: 300, y: 150, img: switchImg },
+    { name: 'R1',    x: 300, y: 360, img: routerImg },
+    { name: 'SW2',   x: 300, y: 540, img: switchImg },
+    { name: 'PC5',   x: 50,  y: 600, img: receiverImg },
+    { name: 'PC6',   x: 200, y: 600, img: receiverImg },
+    { name: 'PC7',   x: 350, y: 600, img: receiverImg },
+    { name: 'PC8',   x: 500, y: 600, img: receiverImg }
+  ];
+
+  // Функция для получения центра устройства (для анимации)
+  function getDeviceCenter(name) {
+    const dev = devices.find(d => d.name === name);
+    if (!dev) return null;
+    return { x: dev.x + 20, y: dev.y + 20 };
+  }
+
+  // Фоновая заливка под 3 зоны (примерно, как в дизайне: верх - зелёный, центр - белый, низ - розовый)
+function drawBackgroundZones() {
+  // Верхняя зона (0..240) — зелёная
+  ctx.fillStyle = '#c8e6c9';
+  ctx.fillRect(0, 0, 760, 240);
+
+  // Средняя зона (240..480) — белая
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 240, 760, 240);
+
+  // Нижняя зона (480..720) — розовая
+  ctx.fillStyle = '#f8bbd0';
+  ctx.fillRect(0, 480, 760, 240);
+}
+
+  // Рисуем схему: линии и устройства
+  function drawNetwork() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawBackgroundZones();
+    // Линии
+    drawLine('PC1', 'SW1');
+    drawLine('PC2', 'SW1');
+    drawLine('PC3', 'SW1');
+    drawLine('PC4', 'SW1');
+    drawLine('SW1', 'R1');
+    drawLine('R1', 'SW2');
+    drawLine('PC5', 'SW2');
+    drawLine('PC6', 'SW2');
+    drawLine('PC7', 'SW2');
+    drawLine('PC8', 'SW2');
+    // Устройства
+    devices.forEach(d => {
+      ctx.drawImage(d.img, d.x, d.y, 40, 40);
+      ctx.font = '12px Arial';
+      ctx.fillStyle = '#000';
+      if (d.name == 'PC3') {
+        ctx.fillText(d.name, d.x + 10, d.y + 55);
+      }
+      else
+      ctx.fillText(d.name, d.x, d.y + 55);
+    });
+    // Пакет
+    ctx.drawImage(packetImg, packetX - 10, packetY - 10, 20, 20);
+  }
+
+  function drawLine(a, b) {
+    const ca = getDeviceCenter(a);
+    const cb = getDeviceCenter(b);
+    if (!ca || !cb) return;
+    ctx.beginPath();
+    ctx.moveTo(ca.x, ca.y);
+    ctx.lineTo(cb.x, cb.y);
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Начальное положение пакета
+  let packetX = 0;
+  let packetY = 0;
+
+  // Анимация перемещения пакета между устройствами
+  function animatePacket(fromName, toName) {
+    return new Promise(resolve => {
+      if (!fromName || !toName) {
+        resolve();
+        return;
+      }
+      const start = getDeviceCenter(fromName);
+      const end = getDeviceCenter(toName);
+      if (!start || !end) {
+        resolve();
+        return;
+      }
+      let progress = 0;
+      const steps = 30;
+      function stepAnim() {
+        drawNetwork();
+        packetX = start.x + (end.x - start.x) * (progress / steps);
+        packetY = start.y + (end.y - start.y) * (progress / steps);
+        ctx.drawImage(packetImg, packetX - 10, packetY - 10, 20, 20);
+        progress++;
+        if (progress <= steps) {
+          requestAnimationFrame(stepAnim);
+        } else {
+          resolve();
+        }
+      }
+      stepAnim();
+    });
+  }
+
+  /* ====== Состояния (steps) прохождения пакета ======
+     Каждый state содержит:
+       - description: HTML‑текст динамического описания того, что происходит на схеме
+       - activeLayer: имя активного OSI‑уровня для подсветки в grid
+       - moveTo: (если требуется) имя устройства для анимации перемещения пакета
+       - packetPos: имя устройства, куда должен прийти пакет
+  */
+  const states = [
+    {
+      description: `
+        <h3>Прикладной уровень (Application)</h3>
+        <p>На отправителе (PC1) формируется сообщение для отправки.</p>
+      `,
+      explanation: `
+        <p>Это начальный этап, где приложение создаёт данные для передачи.</p>
+      `,
+      activeLayer: "application",
+      moveTo: null,
+      packetPos: "PC1"
+    },
+    {
+      description: `
+        <h3>Представительский уровень (Presentation)</h3>
+        <p>Данные форматируются и шифруются для передачи.</p>
+      `,
+      explanation: `
+        <p>На этом уровне данные могут быть преобразованы в нужный формат или зашифрованы.</p>
+      `,
+      activeLayer: "presentation",
+      moveTo: null,
+      packetPos: "PC1"
+    },
+    {
+      description: `
+        <h3>Сеансовый уровень (Session)</h3>
+        <p>Устанавливается сессия связи между отправителем и получателем.</p>
+      `,
+      explanation: `
+        <p>Организуется логическая связь, позволяющая обмениваться данными между приложениями.</p>
+      `,
+      activeLayer: "session",
+      moveTo: null,
+      packetPos: "PC1"
+    },
+    {
+      description: `
+        <h3>Транспортный уровень (Transport)</h3>
+        <p>Данные разбиваются на сегменты для надёжной доставки (TCP).</p>
+      `,
+      explanation: `
+        <p>Здесь происходит сегментация данных и контроль их доставки.</p>
+      `,
+      activeLayer: "transport",
+      moveTo: null,
+      packetPos: "PC1"
+    },
+    {
+      description: `
+        <h3>Сетевой уровень (Network)</h3>
+        <p>Добавляются IP-адреса; маршрутизатор определяет оптимальный маршрут.</p>
+      `,
+      explanation: `
+        <p>На этом уровне определяется маршрут прохождения пакета через сеть.</p>
+      `,
+      activeLayer: "network",
+      moveTo: null,
+      packetPos: "PC1"
+    },
+    {
+      description: `
+        <h3>Канальный уровень (Data Link)</h3>
+        <p>Пакет инкапсулируется в кадр с добавлением MAC-адресов.</p>
+      `,
+      explanation: `
+        <p>Добавляются адреса для передачи по локальной сети.</p>
+      `,
+      activeLayer: "datalink",
+      moveTo: null,
+      packetPos: "PC1"
+    },
+    {
+      description: `
+        <h3>Передача в SW1</h3>
+        <p>Пакет отправляется от PC1 в SW1 верхней сети.</p>
+      `,
+      explanation: `
+        <p>Кадр передаётся от компьютера к коммутатору в верхней сети.</p>
+      `,
+      activeLayer: "physical",
+      moveTo: "SW1",
+      packetPos: "SW1"
+    },
+    {
+      description: `
+        <h3>Обработка в SW1</h3>
+        <p>SW1 проводит маршрутизацию пакета внутри верхней сети.</p>
+      `,
+      explanation: `
+        <p>Коммутатор анализирует MAC-адреса для правильной доставки пакета.</p>
+      `,
+      activeLayer: "datalink",
+      moveTo: null,
+      packetPos: "SW1"
+    },
+    {
+      description: `
+        <h3>Передача в роутер (R1)</h3>
+        <p>SW1 отправляет пакет в роутер R1.</p>
+      `,
+      explanation: `
+        <p>Коммутатор передаёт пакет маршрутизатору для дальнейшей передачи между сетями.</p>
+      `,
+      activeLayer: "network",
+      moveTo: "R1",
+      packetPos: "R1"
+    },
+    {
+      description: `
+        <h3>Обработка в роутере (R1)</h3>
+        <p>Роутер анализирует IP-адрес и определяет маршрут для передачи.</p>
+      `,
+      explanation: `
+        <p>Маршрутизатор принимает решение о наилучшем маршруте для доставки данных.</p>
+      `,
+      activeLayer: "network",
+      moveTo: null,
+      packetPos: "R1"
+    },
+    {
+      description: `
+        <h3>Передача в SW2</h3>
+        <p>Роутер отправляет пакет в SW2 нижней сети.</p>
+      `,
+      explanation: `
+        <p>Пакет выходит из маршрутизатора и направляется к коммутатору нижней сети.</p>
+      `,
+      activeLayer: "physical",
+      moveTo: "SW2",
+      packetPos: "SW2"
+    },
+    {
+      description: `
+        <h3>Обработка в SW2</h3>
+        <p>SW2 принимает пакет и подготавливает его к доставке получателю.</p>
+      `,
+      explanation: `
+        <p>Коммутатор нижней сети определяет конечное устройство для получения пакета.</p>
+      `,
+      activeLayer: "datalink",
+      moveTo: null,
+      packetPos: "SW2"
+    },
+    {
+      description: `
+        <h3>Доставка к получателю (PC7)</h3>
+        <p>SW2 передаёт пакет к целевому компьютеру (PC7) нижней сети.</p>
+      `,
+      explanation: `
+        <p>Пакет направляется к конечному устройству для обработки.</p>
+      `,
+      activeLayer: "physical",
+      moveTo: "PC7",
+      packetPos: "PC7"
+    },
+    {
+      description: `
+        <h3>(PC7)</h3>
+        <p>.</p>
+      `,
+      explanation: `
+        <p>.</p>
+      `,
+      activeLayer: "datalink",
+      moveTo: null,
+      packetPos: "PC7"
+    },
+    {
+      description: `
+        <h3>(PC7)</h3>
+        <p>.</p>
+      `,
+      explanation: `
+        <p>.</p>
+      `,
+      activeLayer: "network",
+      moveTo: null,
+      packetPos: "PC7"
+    },
+    {
+      description: `
+        <h3>(PC7)</h3>
+        <p>.</p>
+      `,
+      explanation: `
+        <p>.</p>
+      `,
+      activeLayer: "transport",
+      moveTo: null,
+      packetPos: "PC7"
+    },
+    {
+      description: `
+        <h3>(PC7)</h3>
+        <p>.</p>
+      `,
+      explanation: `
+        <p>.</p>
+      `,
+      activeLayer: "session",
+      moveTo: null,
+      packetPos: "PC7"
+    },
+    {
+      description: `
+        <h3>(PC7)</h3>
+        <p>.</p>
+      `,
+      explanation: `
+        <p>.</p>
+      `,
+      activeLayer: "presentation",
+      moveTo: null,
+      packetPos: "PC7"
+    },
+    {
+      description: `
+        <h3>Декапсуляция: Прикладной уровень (Получатель)</h3>
+        <p>Пакет проходит через все уровни декодирования и поступает в приложение.</p>
+      `,
+      explanation: `
+        <p>На этом этапе данные извлекаются и передаются приложению для использования.</p>
+      `,
+      activeLayer: "application",
+      moveTo: null,
+      packetPos: "PC7"
+    }
+  ];
+  
+  let currentIndex = 0;
+  let playInterval = null;
+  let isAnimating = false;
+  
+  // Подсветка активного уровня в osi-tcp-grid
+  const layerToRowClass = {
+    application: "osi-7",
+    presentation: "osi-6",
+    session: "osi-5",
+    transport: "osi-4",
+    network: "osi-3",
+    datalink: "osi-2",
+    physical: "osi-1"
+  };
+  // Для TCP/IP блоков: обратите внимание, теперь вместо двух последних используется объединённый блок "Канальный"
+  const tcpipGroupMapping = {
+    application:  "applications",
+    presentation: "applications",
+    session:      "applications",
+    transport:    "transport",
+    network:      "internet",
+    datalink:     "datalink",  // используется для объединённого блока "Канальный"
+    physical:     "datalink"
+  };
+  
+  function highlightLayers(activeLayer) {
+    document.querySelectorAll('.osi-block').forEach(el => {
+      el.classList.remove('active-layer');
+    });
+    const rowClass = layerToRowClass[activeLayer];
+    const activeOsiEl = document.querySelector(`.osi-block.${rowClass}`);
+    if (activeOsiEl) {
+      activeOsiEl.classList.add('active-layer');
+    }
+    document.querySelectorAll('.tcp-block').forEach(el => {
+      el.classList.remove('active-group');
+    });
+    const group = tcpipGroupMapping[activeLayer];
+    const tcpBlock = document.querySelector(`.tcp-block[data-group="${group}"]`);
+    if (tcpBlock) {
+      tcpBlock.classList.add('active-group');
+    }
+    // Обновляем статическое описание уровней в правой колонке
+    document.getElementById('levelsDescription').innerText = 
+      activeLayer.charAt(0).toUpperCase() + activeLayer.slice(1) + " уровень";
+  }
+  
+  function updateView() {
+    const state = states[currentIndex];
+    document.getElementById('descriptionBox').innerHTML = state.description;
+    document.getElementById('descriptionBox1').innerHTML = state.explanation;
+    highlightLayers(state.activeLayer);
+    drawNetwork();
+  }
+  
+  // Переход к состоянию, с анимацией, если требуется перемещение пакета
+  function goToState(index) {
+    if (index < 0 || index >= states.length) return;
+    const prevState = states[currentIndex];
+    currentIndex = index;
+    const newState = states[currentIndex];
+    if (prevState.packetPos !== newState.packetPos) {
+      isAnimating = true;
+      animatePacket(prevState.packetPos, newState.packetPos).then(() => {
+        isAnimating = false;
+        updateView();
+        if (playInterval) setTimeout(() => nextState(), 500);
+      });
+    } else {
+      updateView();
+      if (playInterval) setTimeout(() => nextState(), 500);
+    }
+  }
+  
+  function nextState() {
+    if (currentIndex < states.length - 1) {
+      goToState(currentIndex + 1);
+    } else {
+      stopPlay();
+    }
+  }
+  
+  function prevState() {
+    if (currentIndex > 0) {
+      goToState(currentIndex - 1);
+    }
+  }
+  
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const playBtn = document.getElementById('playBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  
+  prevBtn.addEventListener('click', () => { if (!isAnimating) prevState(); });
+  nextBtn.addEventListener('click', () => { if (!isAnimating) nextState(); });
+  playBtn.addEventListener('click', () => {
+    if (playInterval) {
+      stopPlay();
+    } else {
+      startPlay();
+    }
+  });
+  resetBtn.addEventListener('click', () => {
+    stopPlay();
+    currentIndex = 0;
+    const startPos = getDeviceCenter("PC1");
+    packetX = startPos.x;
+    packetY = startPos.y;
+    updateView();
+  });
+  
+  function startPlay() {
+    playBtn.textContent = "Стоп";
+    playInterval = true;
+    if (!isAnimating) nextState();
+  }
+  function stopPlay() {
+    playBtn.textContent = "Play";
+    playInterval = null;
+  }
+  
+  // Инициализация: как только загрузится изображение отправителя, начинаем с состояния 0
+  senderImg.onload = () => {
+    const startPos = getDeviceCenter("PC1");
+    packetX = startPos.x;
+    packetY = startPos.y;
+    goToState(0);
+  };
+  if (senderImg.complete) {
+    const startPos = getDeviceCenter("PC1");
+    packetX = startPos.x;
+    packetY = startPos.y;
+    goToState(0);
+  }
+</script>
+</body>
+</html>
